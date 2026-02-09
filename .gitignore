@@ -1,6 +1,4 @@
 ﻿venv/
 dataset/
-*.pth
 __pycache__/
 .streamlit/
-model_performance_report.csv
