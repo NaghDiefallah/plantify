@@ -1,3 +1,0 @@
-2026-02-10 07:03:01,821 - CRITICAL - KERNEL_PANIC: Error(s) in loading state_dict for WrappedModel:
-	Missing key(s) in state_dict: "base.classifier.1.1.weight", "base.classifier.1.1.bias". 
-	Unexpected key(s) in state_dict: "base.classifier.1.1.1.weight", "base.classifier.1.1.1.bias". 
