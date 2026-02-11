@@ -107,7 +107,6 @@ def train_model_lite():
     print(f"\nInitializing MobileNetV3-Large model (lite)...")
     model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
     
-    # Freeze backbone, only train classifier head
     for param in model.features.parameters():
         param.requires_grad = False
     

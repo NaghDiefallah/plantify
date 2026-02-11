@@ -253,7 +253,18 @@ class NeuralEngine:
 
     def generate_heatmap(self, model, img_tensor, original_image):
         model.zero_grad()
-        target_layer = model.base.features[-1]
+        
+        # Determine target layer based on architecture
+        if hasattr(model, 'features'):
+            # MobileNetV3 structure
+            target_layer = model.features[-1]
+        elif hasattr(model, 'base') and hasattr(model.base, 'features'):
+            # EfficientNet wrapped structure
+            target_layer = model.base.features[-1]
+        else:
+            # Fallback - return original image
+            return np.array(original_image.resize((240, 240)))
+        
         activated_features = []
         activated_gradients = []
         
@@ -520,4 +531,4 @@ with st.sidebar:
     st.metric("Model Status", "✓ Loaded" if model else "✗ Not Loaded")
     
     st.markdown("---")
-    st.caption("Plantify AI v3.0 | Neural Intelligence Suite")
+    st.caption("Plantify AI")

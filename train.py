@@ -87,12 +87,10 @@ def train_model():
     combined_dataset = ConcatDataset(datasets_list)
     print(f"\nTotal combined dataset: {len(combined_dataset)} images")
     
-    # Split into train/val (80/20)
     train_size = int(0.8 * len(combined_dataset))
     val_size = len(combined_dataset) - train_size
     train_dataset, val_dataset = random_split(combined_dataset, [train_size, val_size])
     
-    # Apply validation transform to val dataset
     val_dataset.dataset = ConcatDataset([
         type('obj', (object,), {'__getitem__': lambda self, idx: train_dataset.dataset[idx][0] if hasattr(train_dataset.dataset[idx][0], 'save') else train_dataset.dataset[idx]})()
     ])
