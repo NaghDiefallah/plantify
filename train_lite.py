@@ -1,8 +1,3 @@
-"""
-Light-weight training script using MobileNetV3 for fast prototyping.
-Use this for quick iterations and testing. Use train.py for production quality.
-"""
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
