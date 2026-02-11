@@ -38,104 +38,102 @@ st.markdown("""
 * { font-family: 'Inter', sans-serif; }
 
 :root {
-    --primary: #10b981;
-    --primary-dark: #059669;
-    --bg-main: #0F172A;
-    --bg-card: #1E293B;
-    --bg-hover: #334155;
-    --text-primary: #F1F5F9;
-    --text-secondary: #94A3B8;
-    --border: rgba(255, 255, 255, 0.1);
+    /* Light mode palette */
+    --primary: #0f9d58; /* green */
+    --primary-dark: #0b7a43;
+    --bg-main: #f7fafc; /* very light gray */
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    --text-primary: #0f172a; /* dark slate */
+    --text-secondary: #475569; /* slate gray */
+    --border: rgba(15, 23, 42, 0.06);
+    --muted: #6b7280;
 }
 
 .stApp { background: var(--bg-main); }
 [data-testid="stHeader"] { background: transparent; }
 
 .hero-title {
-    font-size: 3.5rem;
+    font-size: 3rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--primary-dark);
     text-align: center;
-    margin: 1.5rem 0 0.5rem 0;
-    letter-spacing: -0.03em;
+    margin: 1.25rem 0 0.5rem 0;
+    letter-spacing: -0.02em;
 }
 
 .hero-subtitle {
     text-align: center;
     color: var(--text-secondary);
-    font-size: 1.15rem;
+    font-size: 1rem;
     font-weight: 400;
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.8rem;
 }
 
 .card {
     background: var(--bg-card);
-    border-radius: 20px;
-    padding: 2rem;
+    border-radius: 16px;
+    padding: 1.5rem;
     border: 1px solid var(--border);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .card:hover {
-    background: var(--bg-hover);
-    transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    transform: translateY(-6px);
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
 }
 
 .status-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1.25rem;
-    border-radius: 25px;
-    font-size: 0.9rem;
+    padding: 0.45rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
     font-weight: 600;
 }
 
 .status-online {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-    border: 1.5px solid rgba(16, 185, 129, 0.4);
+    background: rgba(15, 157, 88, 0.08);
+    color: var(--primary-dark);
+    border: 1px solid rgba(15, 157, 88, 0.12);
 }
 
 .status-offline {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.12);
 }
 
 .stButton>button {
     width: 100%;
-    border-radius: 14px;
-    height: 3.2rem;
+    border-radius: 10px;
+    height: 3.1rem;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.98rem;
     border: none;
-    transition: all 0.3s ease;
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .stButton>button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 157, 88, 0.14);
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 2.2rem;
+    font-size: 1.9rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--primary-dark);
 }
 
 [data-testid="stMetricLabel"] {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    font-weight: 500;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
 }
 
 [data-testid="stSidebar"] {
@@ -144,27 +142,27 @@ st.markdown("""
 }
 
 .stTabs [data-baseweb="tab-list"] {
-    gap: 0.75rem;
+    gap: 0.6rem;
     background: transparent;
     border-bottom: none;
 }
 
 .stTabs [data-baseweb="tab"] {
-    background: var(--bg-card);
-    border-radius: 14px;
-    padding: 0.85rem 1.75rem;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    font-weight: 600;
-    transition: all 0.3s ease;
+    background: transparent;
+    border-radius: 12px;
+    padding: 0.6rem 1.15rem;
+    color: var(--muted);
+    border: 1px solid transparent;
+    font-weight: 700;
+    transition: all 0.15s ease;
 }
 
 .stTabs [aria-selected="true"] {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    background: var(--bg-card);
+    color: var(--primary-dark);
+    border-color: var(--border);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
 }
 
 h1, h2, h3 { color: var(--text-primary); }
@@ -172,19 +170,25 @@ p { color: var(--text-secondary); }
 
 .metric-card {
     text-align: center;
-    padding: 1.5rem;
+    padding: 1.25rem;
     background: var(--bg-card);
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid var(--border);
 }
 
 .prediction-result {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
-    border-radius: 20px;
-    padding: 2rem;
+    background: linear-gradient(135deg, rgba(15, 157, 88, 0.045) 0%, rgba(59, 130, 246, 0.03) 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
     border: 1px solid var(--border);
-    margin: 1rem 0;
+    margin: 0.8rem 0;
 }
+
+/* Make images rounded and responsive */
+.stImage > div > img { border-radius: 8px; }
+
+/* Subtle captions */
+.caption { color: var(--muted); font-size: 0.87rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -421,7 +425,7 @@ with tabs[0]:
                 yaxis_title="",
                 height=300,
                 margin=dict(l=0, r=0, t=40, b=0),
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)'
             )
@@ -476,7 +480,7 @@ with tabs[2]:
             title="Performance Matrix"
         )
         fig.update_layout(
-            template="plotly_dark",
+            template="plotly_white",
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)'
         )
