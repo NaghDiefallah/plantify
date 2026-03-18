@@ -1,97 +1,166 @@
-# Plantify AI 🌿
+# Plantify SaaS
 
-A lightweight plant disease detection project using PyTorch and Streamlit.
+Plantify is now organized as a production-oriented full-stack web application:
 
-## 🔧 Prerequisites
+- Frontend: Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn-style UI primitives, Framer Motion
+- Backend: FastAPI with async handlers and JWT auth
+- Persistence: SQLite via SQLAlchemy 2.0 async
+- AI Inference: ONNX Runtime on CPU, exported from the trained PyTorch checkpoint
+- Infra: Docker Compose with Caddy reverse proxy
 
-- Python 3.8+ (3.9 recommended)
-- pip
-- (Optional) CUDA-enabled GPU for faster training/inference
+## Architecture
 
-## ⚙️ Setup
+```text
+plantify/
+  frontend/                # Next.js 15 UI and dashboard
+  backend/                 # FastAPI API, auth, DB, and ONNX inference
+    app/
+      api/routes/          # auth, users, detection, dashboard
+      models/              # User, ScanHistory, PlantMetadata
+      services/            # ai_service and metadata bootstrap
+    scripts/export_onnx.py # converts plantify_model.pth to ONNX + classes.json
+    model/                 # generated ONNX artifacts at build/start
+  caddy/Caddyfile          # reverse proxy config
+  docker-compose.yml
+  dataset/
+    color/
+    grayscale/
+    segmented/
+```
 
-1. Create & activate a virtual environment (Windows example):
+## Data Domains
 
-```powershell
+The training and model robustness context remains based on:
+
+- dataset/color (RGB)
+- dataset/grayscale (luminance)
+- dataset/segmented (foreground masked)
+
+## Core Features
+
+- User accounts: signup, login, profile
+- Rotating refresh-token auth flow with automatic access-token renewal
+- Detection history persisted to SQLite
+- Drag-and-drop upload with client-side compression and strict file validation
+- ONNX inference endpoint returning:
+  - disease_type
+  - confidence_score
+  - treatment_recommendations
+- Optional before/after image support by sending segmented image
+- Bento-style dashboard tiles:
+  - live detection
+  - recent history
+  - statistics
+  - plant health tips
+
+## Local Development
+
+### 0. One Command Dev Mode
+
+From the repository root, you can now start backend and frontend together with Bun:
+
+```bash
+bun install
+bun dev
+```
+
+This runs:
+
+- backend on http://localhost:8000
+- frontend on http://localhost:3000
+
+On Windows, the root Bun scripts call PowerShell launcher files under scripts/ so you do not need to manually chain activation commands.
+
+### 1. Backend
+
+```bash
 python -m venv venv
 venv\Scripts\activate
+pip install -r backend/requirements.txt
+cd backend
+alembic upgrade head
+python scripts/seed_db.py
+uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
 ```
 
-2. Install dependencies:
+If backend/model/plantify_model.onnx or backend/model/classes.json do not exist yet, startup will export them automatically from the root checkpoint at plantify_model.pth.
+
+### 2. Frontend
 
 ```bash
-pip install -r requirements.txt
+cd frontend
+bun install
+bun run dev
 ```
 
-3. (Optional) Verify CUDA access:
+If needed, set frontend env in frontend/.env.local:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
+```
+
+## Dockerized Run
+
+From repository root:
 
 ```bash
-python test_cuda.py
+docker compose up --build
 ```
 
-## 🧪 Datasets
+Services:
 
-Place your datasets under the `dataset/` folder. Expected structure:
+- Caddy entrypoint: http://localhost
+- Frontend: proxied by Caddy
+- Backend API: proxied at /api
+- SQLite persisted in Docker volume: plantify_data
 
-```
-dataset/
-  color/
-  grayscale/
-  segmented/
-```
+## Database Migrations (Alembic)
 
-Each subfolder should contain class subfolders (ImageFolder format).
+Initial migration is included at backend/alembic/versions/20260318_0001_init.py.
 
-## ▶️ Training
-
-- Fast prototype (MobileNetV3):
+Useful commands:
 
 ```bash
-python train_lite.py
+cd backend
+alembic upgrade head
+alembic downgrade -1
 ```
 
-- Production-quality (EfficientNet-B2):
+## Auth and Upload Hardening
+
+- Login returns access_token + refresh_token.
+- Frontend auto-refreshes access tokens on 401 and stores rotated token pairs.
+- /api/auth/refresh rotates refresh tokens server-side (old one revoked).
+- Refresh token reuse detection forces full session invalidation for that user.
+- /api/detect validates MIME type and max file size (5MB by default).
+
+## Integration Tests
+
+Backend integration tests cover:
+
+- refresh token rotation and reuse detection invalidation
+- logout refresh-token revocation
+- detect endpoint MIME/type validation and max-size rejection
+
+Run tests:
 
 ```bash
-python train.py
+cd backend
+pytest
 ```
 
-Both scripts save the best checkpoint to `plantify_model.pth` (root).
+## Training and Model Export Notes
 
-## ✅ Verify model compatibility
+- Existing training scripts are kept:
+  - train.py
+  - train_lite.py
+- Build pipeline exports ONNX from plantify_model.pth via backend/scripts/export_onnx.py
+- Labels are written to backend/model/classes.json and used at inference time
 
-Before running the app (or after training), run the verifier:
+## Legacy Streamlit App
 
-```bash
-python verify_model.py
-```
+The original app.py remains in the repository for reference, but the primary product path is now the frontend/backend stack.
 
-This script attempts to load the saved checkpoint, handle common state-dict prefixes (e.g., `module.`, `base.`), and runs a forward pass to confirm compatibility with `app.py`.
+## License
 
-## 📡 Run the Streamlit app
-
-```bash
-streamlit run app.py
-```
-
-The app will load `plantify_model.pth`, show system info, allow image uploads, show predictions and a heatmap.
-
-## 🛠 Troubleshooting
-
-- "Model not loaded" in app: ensure `plantify_model.pth` exists in project root and `verify_model.py` passes.
-- State-dict prefix/key mismatches: re-train or re-save the checkpoint using `model.state_dict()` (avoid `DataParallel` wrapper).
-- If CUDA not available, the code will run on CPU automatically.
-
-> Tip: Use `streamlit run app.py` and click **Reload System** in the sidebar after replacing the model file.
-
-## 📁 Useful files
-
-- `train.py` — full training (EfficientNet-B2)
-- `train_lite.py` — quick prototype (MobileNetV3-Large)
-- `verify_model.py` — compatibility checker for saved checkpoints
-- `test_cuda.py` — checks CUDA availability
-- `requirements.txt` — Python dependencies
-
-## 📜 License
-
-This project is licensed under the MIT License, check `LICENSE` file.
+MIT. See LICENSE.
