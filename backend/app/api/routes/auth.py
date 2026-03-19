@@ -63,6 +63,7 @@ async def signup(payload: SignUpRequest, session: AsyncSession = Depends(get_ses
     user = User(
         email=payload.email,
         full_name=payload.full_name,
+        role="farmer",
         hashed_password=get_password_hash(payload.password),
     )
     session.add(user)

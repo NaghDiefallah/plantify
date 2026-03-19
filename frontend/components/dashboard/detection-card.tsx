@@ -128,13 +128,13 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
 
   return (
     <Card className="h-full">
-      <h3 className="text-base font-semibold">Live Upload Detection</h3>
-      <p className="mb-4 text-sm text-muted-foreground">Drag-and-drop style flow with client-side compression.</p>
+      <h3 className="text-base font-semibold">Leaf Scan Intake</h3>
+      <p className="mb-4 text-sm text-muted-foreground">Upload source and segmented samples for fast crop-health predictions.</p>
 
       <div className="grid gap-3">
         <div
           {...originalZone.getRootProps()}
-          className="rounded-xl border border-dashed border-border/70 bg-black/20 p-4 text-sm transition hover:border-primary/80"
+          className="rounded-2xl border border-dashed border-border/70 bg-muted/40 p-4 text-sm transition hover:border-primary/80 dark:bg-muted/20"
         >
           <input {...originalZone.getInputProps()} />
           <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
 
         <div
           {...segmentedZone.getRootProps()}
-          className="rounded-xl border border-dashed border-border/70 bg-black/20 p-4 text-sm transition hover:border-primary/80"
+          className="rounded-2xl border border-dashed border-border/70 bg-muted/40 p-4 text-sm transition hover:border-primary/80 dark:bg-muted/20"
         >
           <input {...segmentedZone.getInputProps()} />
           <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
           <select
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-border bg-black/30 px-3 text-foreground"
+            className="mt-2 h-11 w-full rounded-2xl border border-border bg-card px-3 text-foreground"
           >
             <option value="color">Color</option>
             <option value="grayscale">Grayscale</option>
@@ -180,7 +180,7 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
         </Button>
       </div>
 
-      {preview ? <img src={preview} alt="Preview" className="mt-4 h-40 w-full rounded-xl object-cover" /> : null}
+      {preview ? <img src={preview} alt="Preview" className="mt-4 h-40 w-full rounded-2xl object-cover" /> : null}
 
       <AnimatePresence>
         {result ? (
@@ -188,7 +188,7 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="mt-4 rounded-xl border border-border bg-black/20 p-4"
+            className="mt-4 rounded-2xl border border-border bg-muted/40 p-4 dark:bg-muted/20"
           >
             <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Prediction</p>
             <h4 className="mt-1 text-lg font-semibold">{result.disease_type}</h4>

@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "visitor": "Visitor",
+    "farmer": "Farmer",
+    "expert": "Expert",
+    "admin": "Admin",
+    "login": "Login",
+    "register": "Register"
+  },
+  "landing": {
+    "eyebrow": "Plantify Platform",
+    "title": "Modern crop health operations for field teams.",
+    "subtitle": "Monitor conditions, standardize workflows, and act faster with clear operational insights.",
+    "ctaPrimary": "Get started",
+    "ctaSecondary": "Explore Platform"
+  }
+}

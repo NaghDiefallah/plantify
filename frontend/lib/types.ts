@@ -26,11 +26,23 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
+  role: UserRole;
   created_at: string;
 }
+
+export type UserRole = "farmer" | "expert" | "admin" | "developer";
 
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
   token_type: string;
+}
+
+export interface UserRoleUpdatePayload {
+  role: UserRole;
+}
+
+export interface RoleCodeUpdatePayload {
+  code: string;
+  role: UserRole;
 }
