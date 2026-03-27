@@ -114,6 +114,42 @@ Services:
 - Backend API: proxied at /api
 - SQLite persisted in Docker volume: plantify_data
 
+## Automated CI/CD and VPS Deployment
+
+Pushing to `main` now triggers an automated pipeline in `.github/workflows/publish.yml` that:
+
+- builds and pushes backend and frontend images to GHCR
+- uploads deploy files to your VPS
+- pulls fresh images and restarts containers on the VPS
+
+A separate workflow in `.github/workflows/telegram-notify.yml` sends Telegram notifications after the deployment workflow completes.
+
+### Required GitHub Repository Secrets
+
+Set these in GitHub: Settings -> Secrets and variables -> Actions.
+
+For VPS deploy:
+
+- `VPS_HOST` (example: `203.0.113.10`)
+- `VPS_USER` (example: `root` or deploy user)
+- `VPS_SSH_KEY` (private key for SSH)
+- `VPS_PORT` (optional, defaults to `22`)
+- `VPS_APP_DIR` (optional, defaults to `/opt/plantify`)
+- `GHCR_USERNAME` (GitHub username that can pull private GHCR images)
+- `GHCR_PAT` (PAT with `read:packages` scope)
+- `BACKEND_ENV_FILE` (full content of backend `.env` for production)
+
+For Telegram notifications:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+### VPS Prerequisites
+
+- Docker and Docker Compose plugin installed on the VPS
+- VPS user can run Docker commands
+- Port 80 open for Caddy
+
 ## Database Migrations (Alembic)
 
 Initial migration is included at backend/alembic/versions/20260318_0001_init.py.

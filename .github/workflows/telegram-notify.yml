@@ -1,0 +1,111 @@
+name: Telegram Notifications
+
+on:
+  workflow_run:
+    workflows: ["Build, Publish, and Deploy"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+
+jobs:
+  notify:
+    name: Send Telegram Notification
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            echo "::warning::Telegram secrets are not configured. Skipping notification."
+            echo "SKIP_NOTIFICATION=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build and send notification
+        if: env.SKIP_NOTIFICATION != 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          TIMESTAMP=$(date -u +"%b %d, %Y • %H:%M UTC")
+
+          case "$CONCLUSION" in
+            success)    EMOJI="✅"; STATUS_LABEL="Successful" ;;
+            failure)    EMOJI="❌"; STATUS_LABEL="Failed" ;;
+            cancelled)  EMOJI="⚠️"; STATUS_LABEL="Cancelled" ;;
+            timed_out)  EMOJI="⏰"; STATUS_LABEL="Timed Out" ;;
+            *)          EMOJI="ℹ️"; STATUS_LABEL="$CONCLUSION" ;;
+          esac
+
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1 | cut -c1-80)
+          SAFE_MSG=$(echo "$FIRST_LINE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+
+          MESSAGE=$(cat <<EOF
+          ${EMOJI} <b>Plantify CI/CD</b> │ ${STATUS_LABEL}
+          ━━━━━━━━━━━━━━━━━━━━━━━━
+
+          📦 <b>Workflow</b>
+          └ ${WORKFLOW_NAME}
+
+          🌿 <b>Branch</b>
+          └ <code>${BRANCH}</code>
+
+          🔗 <b>Commit</b>
+          └ <a href="https://github.com/${REPO}/commit/${COMMIT_SHA}">${SHORT_SHA}</a> — <i>${SAFE_MSG}</i>
+
+          👤 <b>Author</b>
+          └ <a href="https://github.com/${ACTOR}">@${ACTOR}</a>
+
+          🕐 <b>Timestamp</b>
+          └ ${TIMESTAMP}
+
+          ━━━━━━━━━━━━━━━━━━━━━━━━
+          🔍 <a href="${RUN_URL}">View Full Run Details →</a>
+          EOF
+          )
+
+          MAX_RETRIES=3
+          RETRY_DELAY=2
+
+          for ATTEMPT in $(seq 1 $MAX_RETRIES); do
+            HTTP_CODE=$(curl -sS -o /tmp/tg_response.json -w "%{http_code}" \
+              -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n \
+                --arg chat_id "$TELEGRAM_CHAT_ID" \
+                --arg text "$MESSAGE" \
+                '{
+                  chat_id: $chat_id,
+                  text: $text,
+                  parse_mode: "HTML",
+                  disable_web_page_preview: true
+                }'
+              )")
+
+            if [ "$HTTP_CODE" -eq 200 ]; then
+              echo "Notification sent successfully (attempt ${ATTEMPT}/${MAX_RETRIES})"
+              exit 0
+            fi
+
+            echo "::warning::Attempt ${ATTEMPT}/${MAX_RETRIES} failed (HTTP ${HTTP_CODE})"
+            cat /tmp/tg_response.json
+
+            if [ "$ATTEMPT" -lt "$MAX_RETRIES" ]; then
+              sleep "$RETRY_DELAY"
+              RETRY_DELAY=$((RETRY_DELAY * 2))
+            fi
+          done
+
+          echo "::error::Failed to send Telegram notification after ${MAX_RETRIES} attempts"
+          exit 1
