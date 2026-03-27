@@ -37,7 +37,8 @@ jobs:
           python -m pip install -r /tmp/requirements-ci.txt
 
       - name: Run backend integration tests
-        run: pytest backend/tests -q
+        working-directory: backend
+        run: pytest tests -q
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
