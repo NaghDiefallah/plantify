@@ -5,6 +5,8 @@ services:
     env_file:
       - path: backend/.env
         required: false
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - plantify_data:/data
     healthcheck:
@@ -26,28 +28,12 @@ services:
     container_name: plantify-frontend
     environment:
       - NEXT_PUBLIC_API_BASE_URL=/api
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
-
-  caddy:
-    image: caddy:2.8-alpine
-    container_name: plantify-caddy
     ports:
-      - "80:80"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - "127.0.0.1:3000:3000"
     depends_on:
       backend:
         condition: service_healthy
-      frontend:
-        condition: service_started
     restart: unless-stopped
 
 volumes:
   plantify_data:
-  caddy_data:
-  caddy_config:

@@ -120,7 +120,7 @@ Pushing to `main` now triggers an automated pipeline in `.github/workflows/publi
 
 - runs backend integration tests and frontend lint/build as quality gates
 - builds and pushes backend and frontend images to GHCR
-- uploads deploy files (`docker-compose.prod.yml` and `caddy/Caddyfile`) to your VPS
+- uploads the production compose file to your VPS
 - pulls fresh images, waits for healthy containers, and verifies `/health`
 
 A separate workflow in `.github/workflows/telegram-notify.yml` sends Telegram notifications after the deployment workflow completes.
@@ -149,7 +149,7 @@ For Telegram notifications:
 
 - Docker and Docker Compose plugin installed on the VPS
 - VPS user can run Docker commands
-- Port 80 open for Caddy
+- Caddy is managed separately on the VPS and proxies to Plantify on `127.0.0.1:3000` and `127.0.0.1:8000`
 
 ## Database Migrations (Alembic)
 
