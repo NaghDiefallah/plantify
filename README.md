@@ -149,7 +149,7 @@ For Telegram notifications:
 
 - Docker and Docker Compose plugin installed on the VPS
 - VPS user can run Docker commands
-- Caddy is managed separately on the VPS and proxies to Plantify on `127.0.0.1:3000` and `127.0.0.1:8000`
+- Caddy is managed separately on the VPS and proxies to Plantify on `127.0.0.1:13000` and `127.0.0.1:18000`
 
 ## Database Migrations (Alembic)
 
