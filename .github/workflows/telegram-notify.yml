@@ -14,6 +14,8 @@ jobs:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    env:
+      SKIP_NOTIFICATION: "false"
 
     steps:
       - name: Validate secrets
@@ -35,7 +37,7 @@ jobs:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           ACTOR: ${{ github.event.workflow_run.actor.login }}
-          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message || 'No commit message available' }}
         run: |
           SHORT_SHA="${COMMIT_SHA:0:7}"
           TIMESTAMP=$(date -u +"%b %d, %Y • %H:%M UTC")

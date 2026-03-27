@@ -7,25 +7,47 @@ services:
         required: false
     volumes:
       - plantify_data:/data
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
-      interval: 30s
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 20s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   frontend:
     image: ${GHCR_IMAGE_PREFIX}-frontend:${IMAGE_TAG:-latest}
     container_name: plantify-frontend
     environment:
       - NEXT_PUBLIC_API_BASE_URL=/api
-    ports:
-      - "3000:3000"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: plantify-caddy
+    ports:
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   plantify_data:
+  caddy_data:
+  caddy_config:

@@ -118,9 +118,10 @@ Services:
 
 Pushing to `main` now triggers an automated pipeline in `.github/workflows/publish.yml` that:
 
+- runs backend integration tests and frontend lint/build as quality gates
 - builds and pushes backend and frontend images to GHCR
-- uploads deploy files to your VPS
-- pulls fresh images and restarts containers on the VPS
+- uploads deploy files (`docker-compose.prod.yml` and `caddy/Caddyfile`) to your VPS
+- pulls fresh images, waits for healthy containers, and verifies `/health`
 
 A separate workflow in `.github/workflows/telegram-notify.yml` sends Telegram notifications after the deployment workflow completes.
 
@@ -136,7 +137,7 @@ For VPS deploy:
 - `VPS_PORT` (optional, defaults to `22`)
 - `VPS_APP_DIR` (optional, defaults to `/opt/plantify`)
 - `GHCR_USERNAME` (GitHub username that can pull private GHCR images)
-- `GHCR_PAT` (PAT with `read:packages` scope)
+- `GHCR_PAT` (PAT with `read:packages` scope for VPS pulls)
 - `BACKEND_ENV_FILE` (full content of backend `.env` for production)
 
 For Telegram notifications:

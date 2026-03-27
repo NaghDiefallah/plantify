@@ -5,15 +5,60 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: production-deploy-main
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   VPS_APP_DIR: /root/plantify
 
 jobs:
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          grep -Ev '^(torch|torchvision)==|^$' backend/requirements.txt > /tmp/requirements-ci.txt
+          python -m pip install -r /tmp/requirements-ci.txt
+
+      - name: Run backend integration tests
+        run: pytest backend/tests -q
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Lint and build frontend
+        run: |
+          cd frontend
+          bun install --frozen-lockfile
+          bun run lint
+          bun run build
+
+      - name: Validate production Compose file
+        run: docker compose -f docker-compose.prod.yml config > /dev/null
+
   build-and-push:
     name: Build & Push Images
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: quality-gates
     permissions:
       contents: read
       packages: write
@@ -54,8 +99,8 @@ jobs:
           tags: |
             ${{ steps.vars.outputs.image_prefix }}-backend:latest
             ${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -66,8 +111,8 @@ jobs:
           tags: |
             ${{ steps.vars.outputs.image_prefix }}-frontend:latest
             ${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
   deploy:
     name: Deploy to VPS
@@ -89,7 +134,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          source: "docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,caddy/Caddyfile"
           target: ${{ secrets.VPS_APP_DIR || env.VPS_APP_DIR }}
           strip_components: 0
 
@@ -98,8 +143,8 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           GHCR_IMAGE_PREFIX: ${{ needs.build-and-push.outputs.image_prefix }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_ACTOR: ${{ github.actor }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || env.VPS_APP_DIR }}
         with:
@@ -107,11 +152,11 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,GHCR_TOKEN,GHCR_ACTOR,BACKEND_ENV_FILE,VPS_APP_DIR
+          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,GHCR_USERNAME,GHCR_PAT,BACKEND_ENV_FILE,VPS_APP_DIR
           script: |
             set -euo pipefail
 
-            mkdir -p "$VPS_APP_DIR/backend"
+            mkdir -p "$VPS_APP_DIR/backend" "$VPS_APP_DIR/caddy"
             cd "$VPS_APP_DIR"
 
             if [ -n "${BACKEND_ENV_FILE:-}" ]; then
@@ -119,11 +164,19 @@ jobs:
               chmod 600 backend/.env
             fi
 
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
+            if [ -z "${GHCR_USERNAME:-}" ] || [ -z "${GHCR_PAT:-}" ]; then
+              echo "GHCR_USERNAME and GHCR_PAT must be configured for VPS pulls." >&2
+              exit 1
+            fi
+
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             export IMAGE_TAG GHCR_IMAGE_PREFIX
 
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180
+
+            curl -fsS http://127.0.0.1/health > /dev/null
+            docker compose -f docker-compose.prod.yml ps
 
             docker image prune -f --filter "until=168h"
