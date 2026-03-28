@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run actionlint
-        uses: rhysd/actionlint@v1
+        uses: docker://rhysd/actionlint:latest
 
       - name: Validate workflow YAML parsing
         run: |

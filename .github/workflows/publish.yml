@@ -47,7 +47,7 @@ jobs:
             -v "${PWD}:/workspace" \
             -w /workspace \
             aquasec/trivy:0.56.2 \
-            fs --scanners vuln --vuln-type library --severity HIGH,CRITICAL --ignore-unfixed .
+            fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --ignore-unfixed .
 
       - name: Enforce repository vulnerability policy (Trivy)
         if: env.SECURITY_SCAN_ENFORCE == 'true'
@@ -56,7 +56,7 @@ jobs:
             -v "${PWD}:/workspace" \
             -w /workspace \
             aquasec/trivy:0.56.2 \
-            fs --scanners vuln --vuln-type library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
+            fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
 
       - name: Scan backend Python dependencies (pip-audit)
         run: |

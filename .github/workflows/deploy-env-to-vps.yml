@@ -147,21 +147,3 @@ jobs:
             
             echo "✓ Environment files ready. Run 'docker compose -f docker-compose.prod.yml restart' to reload."
 
-      - name: Slack notification
-        if: always() && secrets.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
-          payload: |
-            {
-              "text": "Environment deployment ${{ job.status }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Environment Deployment* `${{ job.status }}`\nTarget: `${{ github.event.inputs.target_env || 'production' }}`"
-                  }
-                }
-              ]
-            }

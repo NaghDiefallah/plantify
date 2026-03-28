@@ -40,97 +40,110 @@ jobs:
           ACTOR: ${{ github.event.workflow_run.actor.login }}
           COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message || 'No commit message available' }}
         run: |
-          SHORT_SHA="${COMMIT_SHA:0:7}"
-          TIMESTAMP=$(date -u +"%b %d, %Y • %H:%M UTC")
+          python - <<'PY'
+          import html
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime, timezone
 
-          case "$CONCLUSION" in
-            success)    EMOJI="✅"; STATUS_LABEL="Successful" ;;
-            failure)    EMOJI="❌"; STATUS_LABEL="Failed" ;;
-            cancelled)  EMOJI="⚠️"; STATUS_LABEL="Cancelled" ;;
-            timed_out)  EMOJI="⏰"; STATUS_LABEL="Timed Out" ;;
-            *)          EMOJI="ℹ️"; STATUS_LABEL="$CONCLUSION" ;;
-          esac
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+          slo_url = os.environ.get("PROD_SLO_URL", "").strip()
 
-          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1 | cut -c1-80)
-          SAFE_MSG=$(echo "$FIRST_LINE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+          workflow_name = os.environ.get("WORKFLOW_NAME", "unknown")
+          conclusion = os.environ.get("CONCLUSION", "unknown")
+          repo = os.environ.get("REPO", "")
+          branch = os.environ.get("BRANCH", "")
+          commit_sha = os.environ.get("COMMIT_SHA", "")
+          run_url = os.environ.get("RUN_URL", "")
+          actor = os.environ.get("ACTOR", "")
+          commit_msg = os.environ.get("COMMIT_MSG", "No commit message available")
 
-          SLO_BLOCK=""
-          if [ -n "${PROD_SLO_URL:-}" ]; then
-            SLO_JSON=$(curl -fsS --max-time 5 "$PROD_SLO_URL" || true)
-            if [ -n "$SLO_JSON" ]; then
-              ENFORCEABLE=$(printf '%s' "$SLO_JSON" | grep -Eo '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
-              ENOUGH_DATA=$(printf '%s' "$SLO_JSON" | grep -Eo '"enough_data"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
-              AVAIL=$(printf '%s' "$SLO_JSON" | grep -Eo '"availability"[[:space:]]*:[[:space:]]*[0-9]+(\.[0-9]+)?' | head -n1 | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
-              P95=$(printf '%s' "$SLO_JSON" | grep -Eo '"latency_seconds_p95"[[:space:]]*:[[:space:]]*[0-9]+(\.[0-9]+)?' | head -n1 | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+          status_map = {
+              "success": ("✅", "Successful"),
+              "failure": ("❌", "Failed"),
+              "cancelled": ("⚠️", "Cancelled"),
+              "timed_out": ("⏰", "Timed Out"),
+          }
+          emoji, status_label = status_map.get(conclusion, ("ℹ️", conclusion))
 
-              if [ -n "$ENFORCEABLE" ] || [ -n "$AVAIL" ] || [ -n "$P95" ]; then
-                SLO_BLOCK=$(cat <<EOF
+          short_sha = commit_sha[:7] if commit_sha else "unknown"
+          timestamp = datetime.now(timezone.utc).strftime("%b %d, %Y • %H:%M UTC")
+          first_line = (commit_msg.splitlines() or ["No commit message available"])[0][:80]
+          safe_msg = html.escape(first_line)
 
-          📈 <b>SLO Snapshot</b>
-          └ enforceable=<code>${ENFORCEABLE:-unknown}</code>, enough_data=<code>${ENOUGH_DATA:-unknown}</code>, availability=<code>${AVAIL:-unknown}</code>, p95=<code>${P95:-unknown}</code>
-                EOF
-                )
-              fi
-            fi
-          fi
+          slo_block = ""
+          if slo_url:
+              try:
+                  req = urllib.request.Request(slo_url, method="GET")
+                  with urllib.request.urlopen(req, timeout=5) as resp:
+                      payload = json.loads(resp.read().decode("utf-8"))
 
-          MESSAGE=$(cat <<EOF
-          ${EMOJI} <b>Plantify CI/CD</b> │ ${STATUS_LABEL}
-          ━━━━━━━━━━━━━━━━━━━━━━━━
+                  enforceable = payload.get("enforceable_slo_ok", "unknown")
+                  enough_data = payload.get("enough_data", "unknown")
+                  availability = payload.get("availability", "unknown")
+                  p95 = payload.get("latency_seconds_p95", "unknown")
 
-          📦 <b>Workflow</b>
-          └ ${WORKFLOW_NAME}
+                  slo_block = (
+                      "\n📈 <b>SLO Snapshot</b>\n"
+                      f"└ enforceable=<code>{html.escape(str(enforceable))}</code>, "
+                      f"enough_data=<code>{html.escape(str(enough_data))}</code>, "
+                      f"availability=<code>{html.escape(str(availability))}</code>, "
+                      f"p95=<code>{html.escape(str(p95))}</code>\n"
+                  )
+              except Exception:
+                  pass
 
-          🌿 <b>Branch</b>
-          └ <code>${BRANCH}</code>
-
-          🔗 <b>Commit</b>
-          └ <a href="https://github.com/${REPO}/commit/${COMMIT_SHA}">${SHORT_SHA}</a> — <i>${SAFE_MSG}</i>
-
-          👤 <b>Author</b>
-          └ <a href="https://github.com/${ACTOR}">@${ACTOR}</a>
-
-          ${SLO_BLOCK}
-
-          🕐 <b>Timestamp</b>
-          └ ${TIMESTAMP}
-
-          ━━━━━━━━━━━━━━━━━━━━━━━━
-          🔍 <a href="${RUN_URL}">View Full Run Details →</a>
-          EOF
+          message = (
+              f"{emoji} <b>Plantify CI/CD</b> | {html.escape(status_label)}\n"
+              "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+              "📦 <b>Workflow</b>\n"
+              f"└ {html.escape(workflow_name)}\n\n"
+              "🌿 <b>Branch</b>\n"
+              f"└ <code>{html.escape(branch)}</code>\n\n"
+              "🔗 <b>Commit</b>\n"
+              f"└ <a href=\"https://github.com/{html.escape(repo)}/commit/{html.escape(commit_sha)}\">{html.escape(short_sha)}</a> - <i>{safe_msg}</i>\n\n"
+              "👤 <b>Author</b>\n"
+              f"└ <a href=\"https://github.com/{html.escape(actor)}\">@{html.escape(actor)}</a>\n"
+              f"{slo_block}\n"
+              "🕐 <b>Timestamp</b>\n"
+              f"└ {html.escape(timestamp)}\n\n"
+              "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+              f"🔍 <a href=\"{html.escape(run_url)}\">View Full Run Details →</a>"
           )
 
-          MAX_RETRIES=3
-          RETRY_DELAY=2
+          body = json.dumps(
+              {
+                  "chat_id": chat_id,
+                  "text": message,
+                  "parse_mode": "HTML",
+                  "disable_web_page_preview": True,
+              }
+          ).encode("utf-8")
 
-          for ATTEMPT in $(seq 1 $MAX_RETRIES); do
-            HTTP_CODE=$(curl -sS -o /tmp/tg_response.json -w "%{http_code}" \
-              -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -n \
-                --arg chat_id "$TELEGRAM_CHAT_ID" \
-                --arg text "$MESSAGE" \
-                '{
-                  chat_id: $chat_id,
-                  text: $text,
-                  parse_mode: "HTML",
-                  disable_web_page_preview: true
-                }'
-              )")
+          url = f"https://api.telegram.org/bot{token}/sendMessage"
+          retries = 3
+          delay = 2
 
-            if [ "$HTTP_CODE" -eq 200 ]; then
-              echo "Notification sent successfully (attempt ${ATTEMPT}/${MAX_RETRIES})"
-              exit 0
-            fi
+          for attempt in range(1, retries + 1):
+              req = urllib.request.Request(url, data=body, method="POST")
+              req.add_header("Content-Type", "application/json")
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as resp:
+                      if resp.status == 200:
+                          print(f"Notification sent successfully (attempt {attempt}/{retries})")
+                          raise SystemExit(0)
+              except urllib.error.HTTPError as exc:
+                  print(f"::warning::Attempt {attempt}/{retries} failed (HTTP {exc.code})")
+              except Exception as exc:
+                  print(f"::warning::Attempt {attempt}/{retries} failed ({exc})")
 
-            echo "::warning::Attempt ${ATTEMPT}/${MAX_RETRIES} failed (HTTP ${HTTP_CODE})"
-            cat /tmp/tg_response.json
+              if attempt < retries:
+                  time.sleep(delay)
+                  delay *= 2
 
-            if [ "$ATTEMPT" -lt "$MAX_RETRIES" ]; then
-              sleep "$RETRY_DELAY"
-              RETRY_DELAY=$((RETRY_DELAY * 2))
-            fi
-          done
-
-          echo "::error::Failed to send Telegram notification after ${MAX_RETRIES} attempts"
-          exit 1
+          raise SystemExit("Failed to send Telegram notification after retries")
+          PY

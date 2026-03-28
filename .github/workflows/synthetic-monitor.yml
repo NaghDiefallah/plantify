@@ -22,26 +22,30 @@ jobs:
     name: Ready and SLO Synthetic Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SKIP_SYNTHETIC: "false"
 
     steps:
       - name: Validate monitor configuration
         run: |
           if [ -z "${{ secrets.PROD_READY_URL }}" ]; then
-            echo "PROD_READY_URL secret is required" >&2
-            exit 1
+            echo "::warning::PROD_READY_URL secret is not configured. Skipping synthetic checks."
+            echo "SKIP_SYNTHETIC=true" >> "$GITHUB_ENV"
           fi
 
           if [ -z "${{ secrets.PROD_SLO_URL }}" ]; then
-            echo "PROD_SLO_URL secret is required" >&2
-            exit 1
+            echo "::warning::PROD_SLO_URL secret is not configured. Skipping synthetic checks."
+            echo "SKIP_SYNTHETIC=true" >> "$GITHUB_ENV"
           fi
 
       - name: Check readiness endpoint
+        if: env.SKIP_SYNTHETIC != 'true'
         run: |
           set -euo pipefail
           curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_READY_URL }}" > /tmp/ready.json
 
       - name: Check SLO endpoint
+        if: env.SKIP_SYNTHETIC != 'true'
         run: |
           set -euo pipefail
           SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
@@ -69,7 +73,7 @@ jobs:
           fi
 
       - name: Check route latency budgets (optional)
-        if: env.SYNTHETIC_ENFORCE_ROUTE_BUDGETS == 'true'
+        if: env.SKIP_SYNTHETIC != 'true' && env.SYNTHETIC_ENFORCE_ROUTE_BUDGETS == 'true'
         env:
           PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
         run: |
@@ -119,6 +123,10 @@ jobs:
             print('Route budget failures: ' + ', '.join(failures), file=sys.stderr)
             sys.exit(1)
           PY
+
+      - name: Skip summary
+        if: env.SKIP_SYNTHETIC == 'true'
+        run: echo "Synthetic monitor skipped because required secrets are not configured."
 
       - name: Upload synthetic evidence artifacts
         if: always()

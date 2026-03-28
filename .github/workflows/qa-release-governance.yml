@@ -105,12 +105,19 @@ jobs:
                       h.update(chunk)
               return h.hexdigest()
 
-          files = [
-              Path('plantify_model.pth'),
-              Path('backend/model/plantify_model.onnx'),
-              Path('backend/model/classes.json'),
-              Path('backend/model/model_registry.json'),
-          ]
+            def resolve_any(*candidates: str) -> Path:
+              for candidate in candidates:
+                path = Path(candidate)
+                if path.exists():
+                  return path
+              raise FileNotFoundError(f"None of the artifact paths exist: {candidates}")
+
+            files = [
+              resolve_any('plantify_model.pth', 'backend/plantify_model.pth'),
+              resolve_any('model/plantify_model.onnx', 'backend/model/plantify_model.onnx'),
+              resolve_any('model/classes.json', 'backend/model/classes.json'),
+              resolve_any('model/model_registry.json', 'backend/model/model_registry.json'),
+            ]
 
           artifacts = {}
           for file in files:
