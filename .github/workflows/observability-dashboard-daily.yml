@@ -5,6 +5,13 @@ on:
     - cron: "0 1 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: observability-dashboard-daily-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   DASHBOARD_TOP_ROUTES: "12"
 
@@ -29,8 +36,9 @@ jobs:
 
       - name: Fetch live SLO and metrics snapshots
         run: |
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
-          METRICS_JSON=$(curl -fsS "${{ secrets.PROD_METRICS_URL }}")
+          set -euo pipefail
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
+          METRICS_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_METRICS_URL }}")
 
           printf '%s' "$SLO_JSON" > /tmp/dashboard-slo.json
           printf '%s' "$METRICS_JSON" > /tmp/dashboard-metrics.json

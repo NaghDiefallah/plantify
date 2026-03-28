@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
 import sys
-
-import torch
  
 CURRENT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = CURRENT_DIR.parent
@@ -13,6 +11,13 @@ from app.services.model_artifacts import build_model, resolve_checkpoint_path
 
 
 def export(checkpoint_path: str | Path | None = None) -> None:
+    try:
+        import torch
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "torch is required to export ONNX artifacts. Install backend ML dependencies first."
+        ) from exc
+
     root = BACKEND_DIR
     model_dir = root / "model"
     model_dir.mkdir(parents=True, exist_ok=True)

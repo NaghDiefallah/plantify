@@ -13,6 +13,13 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: model-rollback-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   rollback-plan:
     name: Create Model Rollback Plan

@@ -17,6 +17,13 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: game-day-drill-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   DETECT_ROUTE_P95_BUDGET_SECONDS: "1.50"
 
@@ -43,13 +50,14 @@ jobs:
         env:
           PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
         run: |
-          READY_JSON=$(curl -fsS "${{ secrets.PROD_READY_URL }}")
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          set -euo pipefail
+          READY_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_READY_URL }}")
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
           printf '%s' "$READY_JSON" > /tmp/drill-ready.json
           printf '%s' "$SLO_JSON" > /tmp/drill-slo.json
 
           if [ -n "${PROD_METRICS_URL:-}" ]; then
-            METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+            METRICS_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "$PROD_METRICS_URL")
             printf '%s' "$METRICS_JSON" > /tmp/drill-metrics.json
           else
             echo "{}" > /tmp/drill-metrics.json

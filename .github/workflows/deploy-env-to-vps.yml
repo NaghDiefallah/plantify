@@ -16,6 +16,13 @@ on:
           - production
           - staging
 
+concurrency:
+  group: deploy-env-to-vps-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   VPS_APP_DIR: /root/plantify
 
@@ -69,18 +76,20 @@ jobs:
           NEXT_PUBLIC_ENABLE_ANALYTICS=true
           EOF
 
-      - name: Validate generated files
+      - name: Validate generated files metadata
         run: |
-          echo "=== Backend .env ===" && cat /tmp/backend.env
-          echo ""
-          echo "=== Frontend .env ===" && cat /tmp/frontend.env
+          test -s /tmp/backend.env
+          test -s /tmp/frontend.env
+          echo "backend.env lines: $(wc -l < /tmp/backend.env)"
+          echo "frontend.env lines: $(wc -l < /tmp/frontend.env)"
 
       - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
           script: |
             # Create app directory if it doesn't exist
             mkdir -p ${{ env.VPS_APP_DIR }}/backend
@@ -94,32 +103,42 @@ jobs:
             umask 0077
 
       - name: Upload backend .env
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
           source: /tmp/backend.env
-          target: ${{ env.VPS_APP_DIR }}/backend/.env
-          strip_prefix: /tmp/
+          target: ${{ env.VPS_APP_DIR }}/backend
+          strip_components: 1
 
       - name: Upload frontend .env
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
           source: /tmp/frontend.env
-          target: ${{ env.VPS_APP_DIR }}/frontend/.env.local
-          strip_prefix: /tmp/
+          target: ${{ env.VPS_APP_DIR }}/frontend
+          strip_components: 1
 
       - name: Verify deployment and restart services
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
           script: |
+            set -euo pipefail
+
+            mv -f ${{ env.VPS_APP_DIR }}/backend/backend.env ${{ env.VPS_APP_DIR }}/backend/.env
+            mv -f ${{ env.VPS_APP_DIR }}/frontend/frontend.env ${{ env.VPS_APP_DIR }}/frontend/.env.local
+            chmod 600 ${{ env.VPS_APP_DIR }}/backend/.env
+            chmod 600 ${{ env.VPS_APP_DIR }}/frontend/.env.local
+
             echo "✓ Backend .env deployed"
             ls -lh ${{ env.VPS_APP_DIR }}/backend/.env
             
@@ -129,7 +148,7 @@ jobs:
             echo "✓ Environment files ready. Run 'docker compose -f docker-compose.prod.yml restart' to reload."
 
       - name: Slack notification
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v1
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK }}

@@ -5,6 +5,13 @@ on:
     - cron: "45 0 1 * *"
   workflow_dispatch:
 
+concurrency:
+  group: reliability-scorecard-monthly-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   INCLUDE_ROUTE_METRICS: "true"
 
@@ -26,11 +33,12 @@ jobs:
         env:
           PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
         run: |
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          set -euo pipefail
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
           printf '%s' "$SLO_JSON" > /tmp/monthly-slo.json
 
           if [ "${INCLUDE_ROUTE_METRICS}" = "true" ] && [ -n "${PROD_METRICS_URL:-}" ]; then
-            METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+            METRICS_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "$PROD_METRICS_URL")
             printf '%s' "$METRICS_JSON" > /tmp/monthly-metrics.json
           else
             echo "{}" > /tmp/monthly-metrics.json

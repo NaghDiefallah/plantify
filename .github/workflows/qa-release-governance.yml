@@ -7,6 +7,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: qa-release-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   backend-integration:
     name: Backend Integration Suite
@@ -30,9 +37,21 @@ jobs:
           grep -Ev '^(torch|torchvision)==|^$' backend/requirements.txt > /tmp/requirements-ci.txt
           python -m pip install -r /tmp/requirements-ci.txt
 
+      - name: Validate backend import safety without ML extras
+        working-directory: backend
+        run: python -c "from app.main import build_security_headers; assert callable(build_security_headers)"
+
       - name: Run backend tests
         working-directory: backend
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q --junitxml=/tmp/backend-pytest.xml
+
+      - name: Upload backend pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-pytest-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 14
+          path: /tmp/backend-pytest.xml
 
   frontend-e2e:
     name: Frontend Build and E2E Smoke

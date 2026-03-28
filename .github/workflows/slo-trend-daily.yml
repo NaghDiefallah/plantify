@@ -5,6 +5,13 @@ on:
     - cron: "15 0 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: slo-trend-daily-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   slo-trend:
     name: Capture Daily SLO Trend
@@ -21,9 +28,9 @@ jobs:
 
       - name: Fetch SLO snapshot
         run: |
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          set -euo pipefail
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
           printf '%s' "$SLO_JSON" > /tmp/slo-daily.json
-          cat /tmp/slo-daily.json
 
       - name: Build trend records
         run: |

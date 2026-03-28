@@ -5,6 +5,13 @@ on:
     - cron: "30 0 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: reliability-digest-weekly-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   INCLUDE_ROUTE_METRICS: "true"
 
@@ -24,18 +31,18 @@ jobs:
 
       - name: Fetch SLO snapshot
         run: |
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          set -euo pipefail
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
           printf '%s' "$SLO_JSON" > /tmp/reliability-slo.json
-          cat /tmp/reliability-slo.json
 
       - name: Fetch route metrics snapshot (optional)
         env:
           PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
         run: |
+          set -euo pipefail
           if [ "${INCLUDE_ROUTE_METRICS}" = "true" ] && [ -n "${PROD_METRICS_URL:-}" ]; then
-            METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+            METRICS_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "$PROD_METRICS_URL")
             printf '%s' "$METRICS_JSON" > /tmp/reliability-metrics.json
-            cat /tmp/reliability-metrics.json
           else
             echo "{}" > /tmp/reliability-metrics.json
           fi

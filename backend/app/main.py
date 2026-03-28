@@ -22,7 +22,6 @@ from app.services.metrics import (
     render_prometheus_metrics,
     render_slo_snapshot,
 )
-from scripts.export_onnx import export as export_onnx
 
 settings = get_settings()
 configure_logging()
@@ -52,6 +51,14 @@ async def lifespan(app: FastAPI):
     model_path = Path(settings.model_path)
     labels_path = Path(settings.labels_path)
     if not model_path.exists() or not labels_path.exists():
+        try:
+            from scripts.export_onnx import export as export_onnx
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Model artifacts are missing and ONNX export dependencies are unavailable. "
+                "Install torch/torchvision or provide prebuilt model artifacts."
+            ) from exc
+
         export_onnx(settings.checkpoint_path)
 
     ai_service = AIService(model_path=settings.model_path, labels_path=settings.labels_path)

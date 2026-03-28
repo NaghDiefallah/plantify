@@ -15,6 +15,13 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: model-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   BASELINE_MAX_SAMPLES: "300"
 

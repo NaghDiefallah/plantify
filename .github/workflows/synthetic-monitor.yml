@@ -5,6 +5,13 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: synthetic-monitor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   SYNTHETIC_ENFORCE_SLO: "true"
   SYNTHETIC_ENFORCE_ROUTE_BUDGETS: "false"
@@ -31,15 +38,13 @@ jobs:
 
       - name: Check readiness endpoint
         run: |
-          echo "Checking readiness: ${{ secrets.PROD_READY_URL }}"
-          curl -fsS "${{ secrets.PROD_READY_URL }}" > /tmp/ready.json
-          cat /tmp/ready.json
+          set -euo pipefail
+          curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_READY_URL }}" > /tmp/ready.json
 
       - name: Check SLO endpoint
         run: |
-          echo "Checking SLO: ${{ secrets.PROD_SLO_URL }}"
-          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
-          echo "$SLO_JSON"
+          set -euo pipefail
+          SLO_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "${{ secrets.PROD_SLO_URL }}")
           printf '%s' "$SLO_JSON" > /tmp/slo.json
 
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -68,12 +73,13 @@ jobs:
         env:
           PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
         run: |
+          set -euo pipefail
           if [ -z "${PROD_METRICS_URL:-}" ]; then
             echo "PROD_METRICS_URL secret is required when SYNTHETIC_ENFORCE_ROUTE_BUDGETS=true" >&2
             exit 1
           fi
 
-          METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+          METRICS_JSON=$(curl --retry 3 --retry-delay 2 --max-time 20 -fsS "$PROD_METRICS_URL")
           printf '%s' "$METRICS_JSON" > /tmp/metrics.json
 
           python - <<'PY'
