@@ -1,0 +1,122 @@
+name: Daily Observability Dashboard
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+env:
+  DASHBOARD_TOP_ROUTES: "12"
+
+jobs:
+  dashboard:
+    name: Build Daily Observability Dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate observability endpoint configuration
+        run: |
+          if [ -z "${{ secrets.PROD_SLO_URL }}" ]; then
+            echo "PROD_SLO_URL secret is required" >&2
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.PROD_METRICS_URL }}" ]; then
+            echo "PROD_METRICS_URL secret is required" >&2
+            exit 1
+          fi
+
+      - name: Fetch live SLO and metrics snapshots
+        run: |
+          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          METRICS_JSON=$(curl -fsS "${{ secrets.PROD_METRICS_URL }}")
+
+          printf '%s' "$SLO_JSON" > /tmp/dashboard-slo.json
+          printf '%s' "$METRICS_JSON" > /tmp/dashboard-metrics.json
+
+      - name: Build dashboard artifacts
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          top_n = int(os.environ.get('DASHBOARD_TOP_ROUTES', '12'))
+          slo = json.loads(open('/tmp/dashboard-slo.json', 'r', encoding='utf-8').read())
+          metrics = json.loads(open('/tmp/dashboard-metrics.json', 'r', encoding='utf-8').read())
+
+          rows = []
+          for route, values in metrics.items():
+            rows.append(
+              {
+                'route': route,
+                'requests_total': int(values.get('requests_total', 0) or 0),
+                'errors_total': int(values.get('errors_total', 0) or 0),
+                'error_rate': float(values.get('errors_total', 0) or 0)
+                / max(1, int(values.get('requests_total', 0) or 0)),
+                'p95': float(values.get('latency_seconds_p95', 0.0) or 0.0),
+              }
+            )
+
+          rows.sort(key=lambda r: (r['p95'], r['requests_total']), reverse=True)
+          top_rows = rows[:top_n]
+
+          summary = {
+            'generated_utc': datetime.now(timezone.utc).isoformat(),
+            'policy_status': slo.get('policy_status'),
+            'enforceable_slo_ok': slo.get('enforceable_slo_ok'),
+            'enough_data': slo.get('enough_data'),
+            'availability': slo.get('availability'),
+            'error_rate': slo.get('error_rate'),
+            'latency_seconds_p95': slo.get('latency_seconds_p95'),
+            'error_budget_target': slo.get('error_budget_target'),
+            'error_budget_remaining': slo.get('error_budget_remaining'),
+            'error_budget_burn_rate': slo.get('error_budget_burn_rate'),
+            'top_routes_count': len(top_rows),
+          }
+
+          with open('/tmp/observability-dashboard-summary.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+
+          lines = []
+          lines.append('# Daily Observability Dashboard')
+          lines.append('')
+          lines.append(f"- generated_utc: {summary['generated_utc']}")
+          lines.append(f"- policy_status: {summary['policy_status']}")
+          lines.append(f"- enforceable_slo_ok: {summary['enforceable_slo_ok']}")
+          lines.append(f"- enough_data: {summary['enough_data']}")
+          lines.append(f"- availability: {summary['availability']}")
+          lines.append(f"- error_rate: {summary['error_rate']}")
+          lines.append(f"- latency_seconds_p95: {summary['latency_seconds_p95']}")
+          lines.append(f"- error_budget_target: {summary['error_budget_target']}")
+          lines.append(f"- error_budget_remaining: {summary['error_budget_remaining']}")
+          lines.append(f"- error_budget_burn_rate: {summary['error_budget_burn_rate']}")
+          lines.append('')
+          lines.append('## Top Routes by p95')
+          lines.append('')
+          lines.append('| Route | Requests | Errors | Error Rate | p95 (s) |')
+          lines.append('|---|---:|---:|---:|---:|')
+
+          for row in top_rows:
+            lines.append(
+              f"| {row['route']} | {row['requests_total']} | {row['errors_total']} | {row['error_rate']:.6f} | {row['p95']:.6f} |"
+            )
+
+          if not top_rows:
+            lines.append('| _no route metrics available_ | 0 | 0 | 0.000000 | 0.000000 |')
+
+          with open('/tmp/observability-dashboard.md', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines) + '\n')
+          PY
+
+      - name: Upload dashboard artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-dashboard-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          path: |
+            /tmp/dashboard-slo.json
+            /tmp/dashboard-metrics.json
+            /tmp/observability-dashboard-summary.json
+            /tmp/observability-dashboard.md

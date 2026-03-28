@@ -11,109 +11,190 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        foreground: "hsl(var(--foreground))",
-        card: "hsl(var(--card))",
-        border: "hsl(var(--border))",
-        muted: "hsl(var(--muted))",
-        accent: "hsl(var(--accent))",
-        /** Lumaris design system — single source of truth */
-        lumaris: {
-          green:   "#4DA751",
-          lime:    "#C8E43B",
-          dark:    "#020202",
-          surface: "#09090b",
-          tile:    "#0d0d10",
-          border:  "#1c1c1f",
-          muted:   "#2f2f34"
+        /** ===== PLANTIFY NATURE-TECH DESIGN SYSTEM ===== */
+        /** Accent Colors — Lime Green as primary */
+        lime: {
+          50:  "#f8fdf3",
+          100: "#f2fbea",
+          200: "#e5f7d5",
+          300: "#d4f0b8",
+          400: "#c8e43b",
+          500: "#059967",
+          600: "#a3c228",
+          700: "#84a321",
+          800: "#6b841e",
+          900: "#58701c",
+          950: "#30400b",
+          neon: "#c8e43b", // Neon Bloom reference
+          glow: "rgba(200, 228, 59, 0.4)" // Glow effect
         },
-        /** Material Design 3 tokens */
-        "on-background":                "#e5e2e1",
-        "background":                   "#141313",
-        "surface":                      "#141313",
-        "surface-dim":                  "#141313",
-        "surface-bright":               "#3a3939",
-        "surface-container-lowest":     "#0e0e0e",
-        "surface-container-low":        "#1c1b1b",
-        "surface-container":            "#201f1f",
-        "surface-container-high":       "#2a2a2a",
-        "surface-container-highest":    "#353434",
-        "surface-variant":              "#353434",
-        "surface-tint":                 "#7fdb7e",
-        "on-surface":                   "#e5e2e1",
-        "on-surface-variant":           "#bfcab9",
-        "inverse-surface":              "#e5e2e1",
-        "inverse-on-surface":           "#313030",
-        "primary":                      "#7fdb7e",
-        "primary-container":            "#4da751",
-        "primary-fixed":                "#9af897",
-        "primary-fixed-dim":            "#7fdb7e",
-        "on-primary":                   "#00390b",
-        "on-primary-container":         "#00360a",
-        "on-primary-fixed":             "#002204",
-        "on-primary-fixed-variant":     "#005315",
-        "inverse-primary":              "#056e1f",
-        "secondary":                    "#bdd82f",
-        "secondary-container":          "#a2bc03",
-        "secondary-fixed":              "#d3ef46",
-        "secondary-fixed-dim":          "#b7d328",
-        "on-secondary":                 "#2c3400",
-        "on-secondary-container":       "#3d4800",
-        "on-secondary-fixed":           "#181e00",
-        "on-secondary-fixed-variant":   "#404c00",
-        "tertiary":                     "#ffb1c7",
-        "tertiary-container":           "#e56d96",
-        "tertiary-fixed":               "#ffd9e2",
-        "tertiary-fixed-dim":           "#ffb1c7",
-        "on-tertiary":                  "#640231",
-        "on-tertiary-container":        "#5f002e",
-        "on-tertiary-fixed":            "#3f001c",
-        "on-tertiary-fixed-variant":    "#831f48",
-        "error":                        "#ffb4ab",
-        "error-container":              "#93000a",
-        "on-error":                     "#690005",
-        "on-error-container":           "#ffdad6",
-        "outline":                      "#899485",
-        "outline-variant":              "#3f493d"
+        /** Light Mode Palette */
+        light: {
+          bg: "#F9FAFB",
+          text: "#1A1A1A",
+          card: "#FFFFFF",
+          border: "#E5E7EB",
+          secondary: "#F3F4F6"
+        },
+        /** Dark Mode Palette */
+        dark: {
+          bg: "#0F0F0F",
+          text: "#E2E8F0",
+          card: "#1A1A1A",
+          border: "#2D2D2D",
+          secondary: "#262626"
+        },
+        // Light mode defaults
+        "plantify-bg": "light-dark(#F9FAFB, #0F0F0F)",
+        "plantify-text": "light-dark(#1A1A1A, #E2E8F0)",
+        "plantify-card": "light-dark(#FFFFFF, #1A1A1A)",
+        "plantify-border": "light-dark(#E5E7EB, #2D2D2D)",
+        "plantify-secondary": "light-dark(#F3F4F6, #262626)",
+        
+        // Semantic colors
+        bg: {
+          primary: "var(--bg-primary)",
+          secondary: "var(--bg-secondary)"
+        },
+        text: {
+          primary: "var(--text-primary)",
+          secondary: "var(--text-secondary)",
+          tertiary: "var(--text-tertiary)"
+        },
+        foreground: "light-dark(#1A1A1A, #E2E8F0)",
+        background: "light-dark(#F9FAFB, #0F0F0F)",
+        card: {
+          DEFAULT: "light-dark(#FFFFFF, #1A1A1A)",
+          bg: "var(--card-bg)",
+          border: "var(--card-border)"
+        },
+        border: "light-dark(#E5E7EB, #2D2D2D)",
+        muted: "light-dark(#9CA3AF, #6B7280)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)"
+        },
+        
+        // Success, warning, error
+        success: "#22c55e",
+        warning: "#F59E0B",
+        error: "#EF4444",
+        info: "#3B82F6"
       },
+      
       fontFamily: {
-        headline: ["Inter", "var(--font-geist-sans)", "sans-serif"],
-        body:     ["Inter", "var(--font-geist-sans)", "sans-serif"],
-        label:    ["Space Grotesk", "sans-serif"],
-        mono:     ["var(--font-geist-mono)", "Geist Mono", "monospace"]
+        sans: ["var(--font-sora)", "system-ui", "sans-serif"],
+        serif: ["var(--font-sora)", "system-ui", "sans-serif"],
+        arabic: ["var(--font-plex-arabic)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "monospace"]
       },
+      
+      spacing: {
+        "13": "3.25rem",
+        "15": "3.75rem"
+      },
+      
       borderWidth: {
         "0.5": "0.5px"
       },
+      
       borderRadius: {
-        xl:   "1rem",
-        "2xl": "1.25rem",
+        lg: "0.5rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
         "3xl": "1.5rem"
       },
+      
       boxShadow: {
-        tile:       "inset 0 0 0 0.5px rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.5)",
-        "tile-hover": "inset 0 0 0 0.5px rgba(200,228,59,0.6), 0 20px 45px rgba(0,0,0,0.45)",
-        lime:        "0 0 20px rgba(200,228,59,0.25)",
-        "lime-lg":   "0 0 36px rgba(200,228,59,0.35)",
-        green:       "0 0 20px rgba(77,167,81,0.25)"
+        // Light mode shadows
+        "sm-light": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        "light": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+        "md-light": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+        "lg-light": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+        
+        // Dark mode shadows (glassmorphism)
+        "glass": "inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.6)",
+        "glass-sm": "inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.4)",
+        
+        // Lime glow effects
+        "lime": "0 0 20px rgba(200, 228, 59, 0.3)",
+        "lime-md": "0 0 30px rgba(200, 228, 59, 0.4)",
+        "lime-lg": "0 0 40px rgba(200, 228, 59, 0.5)",
+        "lime-inner": "inset 0 0 20px rgba(200, 228, 59, 0.1)"
       },
+      
       keyframes: {
-        float: {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%":      { transform: "translateY(-8px)" }
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" }
         },
-        shimmer: {
-          "0%":   { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" }
-        },
-        fadeSlideUp: {
-          "0%":   { opacity: "0", transform: "translateY(10px)" },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        "slide-in-right": {
+          "0%": { opacity: "0", transform: "translateX(20px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" }
+        },
+        "stagger-children": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        "pulse-lime": {
+          "0%, 100%": { 
+            boxShadow: "0 0 20px rgba(200, 228, 59, 0.3), inset 0 0 20px rgba(200, 228, 59, 0.05)"
+          },
+          "50%": {
+            boxShadow: "0 0 40px rgba(200, 228, 59, 0.5), inset 0 0 30px rgba(200, 228, 59, 0.15)"
+          }
+        },
+        "sonar": {
+          "0%": {
+            opacity: "1",
+            transform: "scale(1)"
+          },
+          "100%": {
+            opacity: "0",
+            transform: "scale(2.5)"
+          }
+        },
+        "glow-pulse": {
+          "0%, 100%": {
+            opacity: "0.5"
+          },
+          "50%": {
+            opacity: "1"
+          }
+        },
+        "theme-switch": {
+          "0%": { transform: "scale(0.95)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" }
         }
       },
+      
       animation: {
-        float:        "float 6s ease-in-out infinite",
-        shimmer:      "shimmer 2.2s linear infinite",
-        fadeSlideUp:  "fadeSlideUp 0.35s ease-out forwards"
+        "fade-in": "fade-in 0.3s ease-out",
+        "slide-up": "slide-up 0.4s ease-out",
+        "slide-in-right": "slide-in-right 0.4s ease-out",
+        "pulse-lime": "pulse-lime 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "sonar": "sonar 1.5s ease-out forwards",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "theme-switch": "theme-switch 0.3s ease-out"
+      },
+      
+      transitionDuration: {
+        "250": "250ms",
+        "350": "350ms",
+        "500": "500ms"
+      },
+      
+      backdropBlur: {
+        xs: "2px",
+        sm: "4px",
+        md: "8px",
+        lg: "12px",
+        xl: "16px",
+        "2xl": "20px"
       }
     }
   },

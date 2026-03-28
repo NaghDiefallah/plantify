@@ -7,6 +7,7 @@ from app.db.session import get_session
 from app.models.scan_history import ScanHistory
 from app.models.user import User
 from app.schemas.scan import ScanHistoryResponse, StatsResponse
+from app.services.scan_image_store import load_scan_image_b64
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -25,7 +26,18 @@ async def history(
     )
     result = await session.execute(stmt)
     rows = result.scalars().all()
-    return [ScanHistoryResponse.model_validate(row) for row in rows]
+    return [
+        ScanHistoryResponse(
+            id=row.id,
+            disease_type=row.disease_type,
+            confidence_score=row.confidence_score,
+            recommendation=row.recommendation,
+            domain=row.domain,
+            created_at=row.created_at,
+            before_image_b64=load_scan_image_b64(row.image_sha256),
+        )
+        for row in rows
+    ]
 
 
 @router.get("/stats", response_model=StatsResponse)

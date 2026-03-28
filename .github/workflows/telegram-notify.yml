@@ -2,7 +2,7 @@ name: Telegram Notifications
 
 on:
   workflow_run:
-    workflows: ["Build, Publish, and Deploy"]
+    workflows: ["Build, Publish, and Deploy", "QA and Release Governance", "Synthetic Production Monitor", "Daily SLO Trend Snapshot", "Daily Observability Dashboard", "Weekly Reliability Digest", "Monthly Reliability Scorecard", "Game-Day Drill", "Model Governance", "Model Rollback Control"]
     types: [completed]
     branches: [main]
 
@@ -30,6 +30,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PROD_SLO_URL: ${{ secrets.PROD_SLO_URL }}
           WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           REPO: ${{ github.repository }}
@@ -53,6 +54,26 @@ jobs:
           FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1 | cut -c1-80)
           SAFE_MSG=$(echo "$FIRST_LINE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
 
+          SLO_BLOCK=""
+          if [ -n "${PROD_SLO_URL:-}" ]; then
+            SLO_JSON=$(curl -fsS --max-time 5 "$PROD_SLO_URL" || true)
+            if [ -n "$SLO_JSON" ]; then
+              ENFORCEABLE=$(printf '%s' "$SLO_JSON" | grep -Eo '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+              ENOUGH_DATA=$(printf '%s' "$SLO_JSON" | grep -Eo '"enough_data"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+              AVAIL=$(printf '%s' "$SLO_JSON" | grep -Eo '"availability"[[:space:]]*:[[:space:]]*[0-9]+(\.[0-9]+)?' | head -n1 | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+              P95=$(printf '%s' "$SLO_JSON" | grep -Eo '"latency_seconds_p95"[[:space:]]*:[[:space:]]*[0-9]+(\.[0-9]+)?' | head -n1 | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+
+              if [ -n "$ENFORCEABLE" ] || [ -n "$AVAIL" ] || [ -n "$P95" ]; then
+                SLO_BLOCK=$(cat <<EOF
+
+          📈 <b>SLO Snapshot</b>
+          └ enforceable=<code>${ENFORCEABLE:-unknown}</code>, enough_data=<code>${ENOUGH_DATA:-unknown}</code>, availability=<code>${AVAIL:-unknown}</code>, p95=<code>${P95:-unknown}</code>
+                EOF
+                )
+              fi
+            fi
+          fi
+
           MESSAGE=$(cat <<EOF
           ${EMOJI} <b>Plantify CI/CD</b> │ ${STATUS_LABEL}
           ━━━━━━━━━━━━━━━━━━━━━━━━
@@ -68,6 +89,8 @@ jobs:
 
           👤 <b>Author</b>
           └ <a href="https://github.com/${ACTOR}">@${ACTOR}</a>
+
+          ${SLO_BLOCK}
 
           🕐 <b>Timestamp</b>
           └ ${TIMESTAMP}

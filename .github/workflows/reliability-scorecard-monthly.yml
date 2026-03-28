@@ -1,0 +1,135 @@
+name: Monthly Reliability Scorecard
+
+on:
+  schedule:
+    - cron: "45 0 1 * *"
+  workflow_dispatch:
+
+env:
+  INCLUDE_ROUTE_METRICS: "true"
+
+jobs:
+  monthly-scorecard:
+    name: Build Monthly Reliability Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate SLO endpoint configuration
+        run: |
+          if [ -z "${{ secrets.PROD_SLO_URL }}" ]; then
+            echo "PROD_SLO_URL secret is required" >&2
+            exit 1
+          fi
+
+      - name: Fetch live reliability snapshots
+        env:
+          PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
+        run: |
+          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          printf '%s' "$SLO_JSON" > /tmp/monthly-slo.json
+
+          if [ "${INCLUDE_ROUTE_METRICS}" = "true" ] && [ -n "${PROD_METRICS_URL:-}" ]; then
+            METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+            printf '%s' "$METRICS_JSON" > /tmp/monthly-metrics.json
+          else
+            echo "{}" > /tmp/monthly-metrics.json
+          fi
+
+      - name: Build scorecard report
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          slo = json.loads(open('/tmp/monthly-slo.json', 'r', encoding='utf-8').read())
+          metrics = json.loads(open('/tmp/monthly-metrics.json', 'r', encoding='utf-8').read())
+
+          availability = float(slo.get('availability', 1.0) or 1.0)
+          error_rate = float(slo.get('error_rate', 0.0) or 0.0)
+          p95 = float(slo.get('latency_seconds_p95', 0.0) or 0.0)
+          target_p95 = float(slo.get('target_latency_seconds_p95', 0.75) or 0.75)
+          enforceable = bool(slo.get('enforceable_slo_ok', False))
+          enough_data = bool(slo.get('enough_data', False))
+
+          # Basic weighted score (0-100) from current reliability posture.
+          score = 100.0
+          score -= max(0.0, (1.0 - availability)) * 100.0 * 1.2
+          score -= error_rate * 100.0 * 0.8
+          if target_p95 > 0:
+            score -= max(0.0, (p95 - target_p95) / target_p95) * 25.0
+          if not enough_data:
+            score -= 5.0
+          if not enforceable:
+            score -= 10.0
+          score = max(0.0, min(100.0, score))
+
+          rows = []
+          for route, values in metrics.items():
+            rows.append(
+              {
+                'route': route,
+                'requests_total': int(values.get('requests_total', 0)),
+                'errors_total': int(values.get('errors_total', 0)),
+                'latency_seconds_p95': float(values.get('latency_seconds_p95', 0.0)),
+              }
+            )
+          rows.sort(key=lambda r: (r['latency_seconds_p95'], r['requests_total']), reverse=True)
+          top_rows = rows[:12]
+
+          ts = datetime.now(timezone.utc).isoformat()
+          summary = {
+            'generated_utc': ts,
+            'reliability_score': round(score, 2),
+            'enforceable_slo_ok': enforceable,
+            'enough_data': enough_data,
+            'availability': availability,
+            'error_rate': error_rate,
+            'latency_seconds_p95': p95,
+            'target_latency_seconds_p95': target_p95,
+            'requests_total': int(slo.get('requests_total', 0) or 0),
+            'errors_total': int(slo.get('errors_total', 0) or 0),
+          }
+
+          with open('/tmp/monthly-scorecard-summary.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+
+          lines = []
+          lines.append('# Monthly Reliability Scorecard')
+          lines.append('')
+          lines.append(f"- generated_utc: {summary['generated_utc']}")
+          lines.append(f"- reliability_score: {summary['reliability_score']}")
+          lines.append(f"- enforceable_slo_ok: {summary['enforceable_slo_ok']}")
+          lines.append(f"- enough_data: {summary['enough_data']}")
+          lines.append(f"- availability: {summary['availability']}")
+          lines.append(f"- error_rate: {summary['error_rate']}")
+          lines.append(f"- latency_seconds_p95: {summary['latency_seconds_p95']}")
+          lines.append(f"- target_latency_seconds_p95: {summary['target_latency_seconds_p95']}")
+          lines.append(f"- requests_total: {summary['requests_total']}")
+          lines.append(f"- errors_total: {summary['errors_total']}")
+          lines.append('')
+          lines.append('## Top Route p95 (Current Snapshot)')
+          lines.append('')
+          lines.append('| Route | Requests | Errors | p95 (s) |')
+          lines.append('|---|---:|---:|---:|')
+          for row in top_rows:
+            lines.append(
+              f"| {row['route']} | {row['requests_total']} | {row['errors_total']} | {row['latency_seconds_p95']:.6f} |"
+            )
+          if not top_rows:
+            lines.append('| _no route metrics available_ | 0 | 0 | 0.000000 |')
+
+          with open('/tmp/monthly-scorecard.md', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines) + '\n')
+          PY
+
+      - name: Upload monthly scorecard artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: monthly-scorecard-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 90
+          path: |
+            /tmp/monthly-slo.json
+            /tmp/monthly-metrics.json
+            /tmp/monthly-scorecard-summary.json
+            /tmp/monthly-scorecard.md

@@ -12,6 +12,8 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   VPS_APP_DIR: /root/plantify
+  SECURITY_SCAN_ENFORCE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
+  SLO_GATE_ENFORCE: "false"
 
 jobs:
   quality-gates:
@@ -36,6 +38,45 @@ jobs:
           grep -Ev '^(torch|torchvision)==|^$' backend/requirements.txt > /tmp/requirements-ci.txt
           python -m pip install -r /tmp/requirements-ci.txt
 
+      - name: Validate backend dependency graph
+        run: python -m pip check
+
+      - name: Scan repository dependencies (Trivy)
+        run: |
+          docker run --rm \
+            -v "${PWD}:/workspace" \
+            -w /workspace \
+            aquasec/trivy:0.56.2 \
+            fs --scanners vuln --vuln-type library --severity HIGH,CRITICAL --ignore-unfixed .
+
+      - name: Enforce repository vulnerability policy (Trivy)
+        if: env.SECURITY_SCAN_ENFORCE == 'true'
+        run: |
+          docker run --rm \
+            -v "${PWD}:/workspace" \
+            -w /workspace \
+            aquasec/trivy:0.56.2 \
+            fs --scanners vuln --vuln-type library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
+
+      - name: Scan backend Python dependencies (pip-audit)
+        run: |
+          python -m pip install pip-audit
+          python -m pip_audit -r /tmp/requirements-ci.txt || true
+
+      - name: Enforce backend Python vulnerability policy (pip-audit)
+        if: env.SECURITY_SCAN_ENFORCE == 'true'
+        run: |
+          python -m pip_audit -r /tmp/requirements-ci.txt
+
+      - name: Validate production settings policy
+        working-directory: backend
+        env:
+          APP_ENV: production
+          SECRET_KEY: this-is-a-ci-validation-secret-key-with-32-chars
+          ROLE_ELEVATION_CODE: this-is-a-ci-role-elevation-code
+          SQLITE_PATH: /tmp/plantify-ci.db
+        run: python -c "from app.core.config import Settings; Settings()"
+
       - name: Run backend integration tests
         working-directory: backend
         run: python -m pytest tests -q
@@ -51,6 +92,15 @@ jobs:
           bun install --frozen-lockfile
           bun run lint
           bun run build
+
+      - name: Enforce frontend lockfile consistency
+        run: |
+          if [ -f frontend/package-lock.json ]; then
+            echo "frontend/package-lock.json detected. Use Bun lockfile only for this project." >&2
+            exit 1
+          fi
+
+          git diff --exit-code -- frontend/bun.lock
 
       - name: Validate production Compose file
         run: docker compose -f docker-compose.prod.yml config > /dev/null
@@ -115,6 +165,45 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+      - name: Pull built images for scanning
+        run: |
+          docker pull "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+          docker pull "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+
+      - name: Scan backend image vulnerabilities (Trivy)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 \
+            image --severity HIGH,CRITICAL --ignore-unfixed \
+            "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+
+      - name: Scan frontend image vulnerabilities (Trivy)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 \
+            image --severity HIGH,CRITICAL --ignore-unfixed \
+            "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+
+      - name: Enforce backend image vulnerability policy (Trivy)
+        if: env.SECURITY_SCAN_ENFORCE == 'true'
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 \
+            image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+
+      - name: Enforce frontend image vulnerability policy (Trivy)
+        if: env.SECURITY_SCAN_ENFORCE == 'true'
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 \
+            image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
@@ -144,6 +233,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           GHCR_IMAGE_PREFIX: ${{ needs.build-and-push.outputs.image_prefix }}
+          SLO_GATE_ENFORCE: ${{ env.SLO_GATE_ENFORCE }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
@@ -153,7 +243,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,GHCR_USERNAME,GHCR_PAT,BACKEND_ENV_FILE,VPS_APP_DIR
+          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,SLO_GATE_ENFORCE,GHCR_USERNAME,GHCR_PAT,BACKEND_ENV_FILE,VPS_APP_DIR
           script: |
             set -euo pipefail
 
@@ -172,12 +262,64 @@ jobs:
 
             echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
+            BACKEND_PREV_IMAGE=$(docker inspect -f '{{.Config.Image}}' plantify-backend 2>/dev/null || true)
+            FRONTEND_PREV_IMAGE=$(docker inspect -f '{{.Config.Image}}' plantify-frontend 2>/dev/null || true)
+            PREV_TAG=""
+            if [ -n "${BACKEND_PREV_IMAGE}" ]; then
+              case "$BACKEND_PREV_IMAGE" in
+                "${GHCR_IMAGE_PREFIX}-backend:"*)
+                  PREV_TAG="${BACKEND_PREV_IMAGE##*:}"
+                  ;;
+              esac
+            fi
+
+            verify_smoke() {
+              for PASS in 1 2; do
+                curl -fsS http://127.0.0.1:18000/ready > /dev/null
+                curl -fsSI http://127.0.0.1:13000 > /dev/null
+                sleep 2
+              done
+            }
+
+            rollback_to_previous_release() {
+              if [ -z "${PREV_TAG}" ] || [ "${PREV_TAG}" = "${IMAGE_TAG}" ]; then
+                echo "No previous image tag available for rollback." >&2
+                return 1
+              fi
+
+              echo "Rolling back deployment to previous tag: ${PREV_TAG}"
+              export IMAGE_TAG="${PREV_TAG}" GHCR_IMAGE_PREFIX
+
+              docker compose -f docker-compose.prod.yml pull
+              docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180
+
+              verify_smoke
+            }
+
             export IMAGE_TAG GHCR_IMAGE_PREFIX
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180
 
-            curl -fsS http://127.0.0.1/health > /dev/null
+            if ! verify_smoke; then
+              echo "Post-deploy smoke checks failed. Attempting rollback..." >&2
+              rollback_to_previous_release || true
+              echo "Deployment failed and rollback was attempted." >&2
+              exit 1
+            fi
+
+            SLO_JSON=$(curl -fsS http://127.0.0.1:18000/slo)
+            echo "SLO snapshot: ${SLO_JSON}"
+
+            if [ "${SLO_GATE_ENFORCE:-false}" = "true" ]; then
+              if ! printf '%s' "$SLO_JSON" | grep -Eq '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*true'; then
+                echo "SLO gate failed: enforceable_slo_ok is false" >&2
+                echo "Attempting rollback after SLO gate failure..." >&2
+                rollback_to_previous_release || true
+                exit 1
+              fi
+            fi
+
             docker compose -f docker-compose.prod.yml ps
 
             docker image prune -f --filter "until=168h"

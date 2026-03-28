@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.api.routes import auth, dashboard, detection, users
 from app.db.base import Base
 from app.db.session import get_session
+from app.services.rate_limiter import clear_rate_limit_state
 
 
 class FakeAIService:
@@ -19,6 +20,11 @@ class FakeAIService:
             "label": "Tomato___healthy",
             "confidence": 0.99,
         }
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limit_state() -> None:
+    clear_rate_limit_state()
 
 
 @pytest_asyncio.fixture()

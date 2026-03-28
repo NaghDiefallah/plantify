@@ -1,18 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import {useRouter} from "next/navigation";
 import {useLocale, useTranslations} from "next-intl";
 import {useEffect, useState} from "react";
 
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
-import {getStoredAccessToken, logoutCurrentSession} from "@/lib/api";
+import {getStoredAccessToken} from "@/lib/api";
 
 export function GlassNav() {
   const t = useTranslations("nav");
   const locale = useLocale();
-  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -26,60 +24,51 @@ export function GlassNav() {
   }, []);
 
   const links = [
-    {label: "Home", href: `/${locale}`},
-    {label: "Mission", href: `/${locale}#mission`},
-    {label: "Testimonials", href: `/${locale}#testimonials`},
-    {label: "Team", href: `/${locale}#team`},
-    {label: "Dashboard", href: `/${locale}/dashboard`}
+    {label: t("home"), href: `/${locale}`},
+    {label: t("mission"), href: `/${locale}#mission`},
+    {label: t("testimonials"), href: `/${locale}#testimonials`},
+    {label: t("team"), href: `/${locale}#team`}
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-zinc-200/80 bg-white/80 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-[#0a0a0a]/80">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
+    <header className="sticky top-4 z-50 px-4 md:px-6">
+      <nav className="glass-nav mx-auto flex w-full max-w-7xl items-center justify-between rounded-2xl px-4 py-3 md:px-6">
         <Link
           href={`/${locale}`}
-          className="font-headline text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
+          className="text-lg font-semibold tracking-tight text-[var(--text-primary)] md:text-xl"
         >
           Plantify
         </Link>
 
-        <div className="hidden items-center gap-7 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="font-body text-sm tracking-tight text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+              className="text-sm tracking-[0.08em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
             >
               {link.label}
             </Link>
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <ThemeToggle />
           <LocaleSwitcher />
           {isLoggedIn ? (
-            <button
-              type="button"
-              onClick={async () => {
-                await logoutCurrentSession();
-                setIsLoggedIn(false);
-                router.push(`/${locale}/login`);
-              }}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-            >
-              Sign out
-            </button>
-          ) : (
             <Link
-              href={`/${locale}/register`}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              href={`/${locale}/dashboard`}
+              className="rounded-lg bg-[#22c55e] px-4 py-2 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
             >
-              {t("register")}
+              {t("dashboard")}
+            </Link>
+          ) : (
+            <Link href={`/${locale}/login`} className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+              {t("login")}
             </Link>
           )}
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

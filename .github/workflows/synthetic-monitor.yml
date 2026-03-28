@@ -1,0 +1,129 @@
+name: Synthetic Production Monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+env:
+  SYNTHETIC_ENFORCE_SLO: "true"
+  SYNTHETIC_ENFORCE_ROUTE_BUDGETS: "false"
+  SYNTHETIC_ROUTE_BUDGETS: "/ready=0.25,/api/detect=1.50"
+
+jobs:
+  synthetic-check:
+    name: Ready and SLO Synthetic Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate monitor configuration
+        run: |
+          if [ -z "${{ secrets.PROD_READY_URL }}" ]; then
+            echo "PROD_READY_URL secret is required" >&2
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.PROD_SLO_URL }}" ]; then
+            echo "PROD_SLO_URL secret is required" >&2
+            exit 1
+          fi
+
+      - name: Check readiness endpoint
+        run: |
+          echo "Checking readiness: ${{ secrets.PROD_READY_URL }}"
+          curl -fsS "${{ secrets.PROD_READY_URL }}" > /tmp/ready.json
+          cat /tmp/ready.json
+
+      - name: Check SLO endpoint
+        run: |
+          echo "Checking SLO: ${{ secrets.PROD_SLO_URL }}"
+          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          echo "$SLO_JSON"
+          printf '%s' "$SLO_JSON" > /tmp/slo.json
+
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ENFORCEABLE=$(printf '%s' "$SLO_JSON" | grep -Eo '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+          ENOUGH_DATA=$(printf '%s' "$SLO_JSON" | grep -Eo '"enough_data"[[:space:]]*:[[:space:]]*(true|false)' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+          REQS=$(printf '%s' "$SLO_JSON" | grep -Eo '"requests_total"[[:space:]]*:[[:space:]]*[0-9]+' | awk -F: '{gsub(/[[:space:]]/, "", $2); print $2}')
+
+          cat > /tmp/synthetic-summary.txt <<EOF
+          timestamp_utc=${TIMESTAMP}
+          enforceable_slo_ok=${ENFORCEABLE:-unknown}
+          enough_data=${ENOUGH_DATA:-unknown}
+          requests_total=${REQS:-unknown}
+          enforce_mode=${SYNTHETIC_ENFORCE_SLO}
+          EOF
+          cat /tmp/synthetic-summary.txt
+
+          if [ "${SYNTHETIC_ENFORCE_SLO}" = "true" ]; then
+            if ! printf '%s' "$SLO_JSON" | grep -Eq '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*true'; then
+              echo "Synthetic SLO check failed: enforceable_slo_ok is false" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Check route latency budgets (optional)
+        if: env.SYNTHETIC_ENFORCE_ROUTE_BUDGETS == 'true'
+        env:
+          PROD_METRICS_URL: ${{ secrets.PROD_METRICS_URL }}
+        run: |
+          if [ -z "${PROD_METRICS_URL:-}" ]; then
+            echo "PROD_METRICS_URL secret is required when SYNTHETIC_ENFORCE_ROUTE_BUDGETS=true" >&2
+            exit 1
+          fi
+
+          METRICS_JSON=$(curl -fsS "$PROD_METRICS_URL")
+          printf '%s' "$METRICS_JSON" > /tmp/metrics.json
+
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          metrics = json.loads(open('/tmp/metrics.json', 'r', encoding='utf-8').read())
+          budgets_raw = os.environ.get('SYNTHETIC_ROUTE_BUDGETS', '').strip()
+          report_lines = []
+          failures = []
+
+          for pair in [p.strip() for p in budgets_raw.split(',') if p.strip()]:
+            if '=' not in pair:
+              continue
+            route, budget_str = pair.split('=', 1)
+            route = route.strip()
+            budget = float(budget_str.strip())
+            route_metrics = metrics.get(route)
+            if route_metrics is None:
+              failures.append(f"missing_route:{route}")
+              report_lines.append(f"{route}: missing (budget={budget}s)")
+              continue
+
+            p95 = float(route_metrics.get('latency_seconds_p95', 0.0))
+            ok = p95 <= budget
+            report_lines.append(f"{route}: p95={p95:.6f}s budget={budget:.6f}s ok={ok}")
+            if not ok:
+              failures.append(f"over_budget:{route}:{p95:.6f}>{budget:.6f}")
+
+          with open('/tmp/route-budget-report.txt', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(report_lines) + ('\n' if report_lines else ''))
+
+          print('\n'.join(report_lines))
+
+          if failures:
+            print('Route budget failures: ' + ', '.join(failures), file=sys.stderr)
+            sys.exit(1)
+          PY
+
+      - name: Upload synthetic evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            /tmp/ready.json
+            /tmp/slo.json
+            /tmp/synthetic-summary.txt
+            /tmp/metrics.json
+            /tmp/route-budget-report.txt

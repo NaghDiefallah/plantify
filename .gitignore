@@ -6,7 +6,7 @@ __pycache__/
 node_modules/
 frontend/node_modules/
 frontend/.next/
-frontend/.env.local
 backend/model/*.onnx
 backend/model/classes.json
-backend/.env
+
+*.md

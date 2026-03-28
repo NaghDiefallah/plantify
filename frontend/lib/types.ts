@@ -3,6 +3,7 @@ export interface DetectionResult {
   confidence_score: number;
   treatment_recommendations: string;
   domain: string;
+  image_sha256?: string | null;
   before_image_b64?: string | null;
   after_image_b64?: string | null;
 }
@@ -14,6 +15,7 @@ export interface ScanHistory {
   recommendation: string;
   domain: string;
   created_at: string;
+  before_image_b64?: string | null;
 }
 
 export interface DashboardStats {

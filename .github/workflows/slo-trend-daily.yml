@@ -1,0 +1,70 @@
+name: Daily SLO Trend Snapshot
+
+on:
+  schedule:
+    - cron: "15 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  slo-trend:
+    name: Capture Daily SLO Trend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate SLO endpoint configuration
+        run: |
+          if [ -z "${{ secrets.PROD_SLO_URL }}" ]; then
+            echo "PROD_SLO_URL secret is required" >&2
+            exit 1
+          fi
+
+      - name: Fetch SLO snapshot
+        run: |
+          SLO_JSON=$(curl -fsS "${{ secrets.PROD_SLO_URL }}")
+          printf '%s' "$SLO_JSON" > /tmp/slo-daily.json
+          cat /tmp/slo-daily.json
+
+      - name: Build trend records
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          from datetime import datetime, timezone
+
+          raw = open('/tmp/slo-daily.json', 'r', encoding='utf-8').read()
+          payload = json.loads(raw)
+          ts = datetime.now(timezone.utc).isoformat()
+
+          record = {
+              'timestamp_utc': ts,
+              'requests_total': payload.get('requests_total'),
+              'errors_total': payload.get('errors_total'),
+              'enough_data': payload.get('enough_data'),
+              'enforceable_slo_ok': payload.get('enforceable_slo_ok'),
+              'availability': payload.get('availability'),
+              'error_rate': payload.get('error_rate'),
+              'latency_seconds_p95': payload.get('latency_seconds_p95'),
+              'target_availability': payload.get('target_availability'),
+              'target_latency_seconds_p95': payload.get('target_latency_seconds_p95'),
+              'min_requests_for_evaluation': payload.get('min_requests_for_evaluation'),
+          }
+
+          with open('/tmp/slo-trend.jsonl', 'w', encoding='utf-8') as f:
+              f.write(json.dumps(record, ensure_ascii=False) + '\n')
+
+          with open('/tmp/slo-trend.csv', 'w', newline='', encoding='utf-8') as f:
+              writer = csv.DictWriter(f, fieldnames=list(record.keys()))
+              writer.writeheader()
+              writer.writerow(record)
+          PY
+
+      - name: Upload daily SLO trend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: slo-trend-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          path: |
+            /tmp/slo-daily.json
+            /tmp/slo-trend.jsonl
+            /tmp/slo-trend.csv

@@ -8,6 +8,7 @@ class DetectionResponse(BaseModel):
     confidence_score: float
     treatment_recommendations: str
     domain: str
+    image_sha256: str | None = None
     before_image_b64: str | None = None
     after_image_b64: str | None = None
 
@@ -19,6 +20,7 @@ class ScanHistoryResponse(BaseModel):
     recommendation: str
     domain: str
     created_at: datetime
+    before_image_b64: str | None = None
 
     model_config = {"from_attributes": True}
 

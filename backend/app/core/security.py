@@ -20,25 +20,45 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
-    payload: dict[str, Any] = {"sub": subject, "exp": expire, "type": "access"}
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "exp": expire,
+        "type": "access",
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": now,
+        "nbf": now,
+    }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
 def create_refresh_token(subject: str, token_id: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": expire,
         "type": "refresh",
         "jti": token_id,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": now,
+        "nbf": now,
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
         if payload.get("type") != "access":
             return None
         return payload
@@ -48,7 +68,13 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
 
 def decode_refresh_token(token: str) -> dict[str, Any] | None:
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
         if payload.get("type") != "refresh":
             return None
         return payload

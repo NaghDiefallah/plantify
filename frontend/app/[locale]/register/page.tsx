@@ -2,9 +2,10 @@
 
 import {ArrowRight, Check, Loader2} from "lucide-react";
 import Link from "next/link";
-import {useLocale} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import {useRouter} from "next/navigation";
 import {FormEvent, useState} from "react";
+import {motion} from "framer-motion";
 
 import {signup} from "@/lib/api";
 import {Button} from "@/components/ui/button";
@@ -14,9 +15,11 @@ import {FloatingField} from "@/components/auth/floating-field";
 export default function RegisterPage() {
   const router = useRouter();
   const locale = useLocale();
-  const [fullName, setFullName] = useState("");
+  const t = useTranslations("auth");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,87 +31,103 @@ export default function RegisterPage() {
     setSuccess(false);
     setError(null);
 
+    if (password !== confirmPassword) {
+      setError(t("register.passwordMismatch"));
+      setLoading(false);
+      return;
+    }
+
     try {
       await signup({
         email,
         password,
-        full_name: fullName
+        full_name: username
       });
       setSuccess(true);
       setTimeout(() => router.push(`/${locale}/login`), 450);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to register");
+      setError(err instanceof Error ? err.message : t("register.error"));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="relative min-h-[calc(100vh-72px)] overflow-hidden bg-gradient-to-b from-zinc-50 via-white to-zinc-100 dark:from-zinc-950 dark:via-zinc-950 dark:to-black">
-      <div className="pointer-events-none absolute -right-36 top-8 h-80 w-80 rounded-full bg-emerald-300/30 blur-3xl dark:bg-emerald-700/20" />
-      <div className="pointer-events-none absolute -left-40 bottom-0 h-72 w-72 rounded-full bg-lime-300/25 blur-3xl dark:bg-lime-700/15" />
+    <main className="relative min-h-[calc(100vh-90px)] overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute right-[-8rem] top-8 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute bottom-0 left-[-8rem] h-80 w-80 rounded-full bg-zinc-500/10 blur-3xl" />
+      </div>
 
-      <div className="mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-md items-center px-4 py-10">
-        <Card className="w-full rounded-3xl border border-zinc-200 bg-white p-7 shadow-xl shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Register</h2>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Fill in your details to create an account.</p>
+      <div className="mx-auto flex min-h-[calc(100vh-90px)] w-full max-w-md items-center px-4 py-10">
+        <motion.div initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}} transition={{duration: 0.35}} className="w-full">
+          <Card className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-7 shadow-[var(--shadow-md)]">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("register.title")}</h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("register.subtitle")}</p>
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-3">
-            <FloatingField
-              label="Full name"
-              autoComplete="name"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              className="border-zinc-300 bg-zinc-50 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-              required
-            />
-            <FloatingField
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="border-zinc-300 bg-zinc-50 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-              required
-            />
-            <p className="-mt-1 text-xs text-zinc-500 dark:text-zinc-400">Use a valid email format, for example name@domain.com.</p>
-            <FloatingField
-              label="Password"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="border-zinc-300 bg-zinc-50 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-              required
-            />
-            <p className="-mt-1 text-xs text-zinc-500 dark:text-zinc-400">Minimum 8 characters.</p>
+            <form onSubmit={onSubmit} className="mt-6 space-y-3">
+              <FloatingField
+                label={t("common.username")}
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+              />
+              <FloatingField
+                label={t("common.email")}
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+              <p className="-mt-1 text-xs text-[var(--text-tertiary)]">{t("common.emailHint")}</p>
+              <FloatingField
+                label={t("common.password")}
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <FloatingField
+                label={t("common.confirmPassword")}
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+              />
+              <p className="-mt-1 text-xs text-[var(--text-tertiary)]">{t("register.passwordRule")}</p>
 
-            <Button type="submit" className="mt-1 h-11 w-full gap-2">
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating account...
-                </>
-              ) : success ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Account created
-                </>
-              ) : (
-                <>
-                  Create account
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-            {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">{error}</p> : null}
-          </form>
+              <Button type="submit" className="mt-1 h-11 w-full gap-2 bg-[#22c55e] text-zinc-50 hover:bg-[#16a34a] active:scale-[0.98]" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("register.loading")}
+                  </>
+                ) : success ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    {t("register.success")}
+                  </>
+                ) : (
+                  <>
+                    {t("register.cta")}
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+              {error ? <p className="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-2 text-sm text-[#ef4444]">{error}</p> : null}
+            </form>
 
-          <p className="mt-5 text-sm text-zinc-600 dark:text-zinc-300">
-            Already have an account? <Link href={`/${locale}/login`} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">Sign in</Link>
-          </p>
-        </Card>
+            <p className="mt-5 text-sm text-[var(--text-secondary)]">
+              {t("register.switchPrompt")} <Link href={`/${locale}/login`} className="font-semibold text-[#22c55e] hover:underline">{t("register.switchCta")}</Link>
+            </p>
+          </Card>
+        </motion.div>
       </div>
     </main>
   );

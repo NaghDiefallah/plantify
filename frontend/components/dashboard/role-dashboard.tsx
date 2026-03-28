@@ -265,16 +265,6 @@ export function RoleDashboard() {
 
   return (
     <main>
-      <section className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 pt-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">Plantify Workspace</p>
-          <h1 className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{title}</h1>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-          {icon}
-          {role ?? "unknown"}
-        </div>
-      </section>
 
       {role === "expert" ? <ExpertPanel /> : null}
       {role === "admin" ? <AdminPanel /> : null}

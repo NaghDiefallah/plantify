@@ -3,7 +3,7 @@ import hashlib
 from typing import Annotated
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,19 +14,32 @@ from app.models.scan_history import ScanHistory
 from app.models.user import User
 from app.schemas.scan import DetectionResponse
 from app.services.recommendations import recommendation_for_label
+from app.services.rate_limiter import enforce_rate_limit
+from app.services.scan_image_store import persist_scan_image
 from app.services.upload_validation import validate_image_upload
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/detect", tags=["detect"])
+settings = get_settings()
 
 
 @router.post("", response_model=DetectionResponse)
 async def detect(
+    request: Request,
     image: Annotated[UploadFile, File(...)],
     domain: Annotated[Literal["color", "grayscale", "segmented"], Form()] = "color",
     segmented_image: UploadFile | None = File(default=None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> DetectionResponse:
+    await enforce_rate_limit(
+        request=request,
+        scope="detect",
+        limit=settings.rate_limit_detect_per_minute,
+        window_seconds=60,
+        identity=f"user:{current_user.id}",
+    )
+
     ai = getattr(router, "ai_service", None)
     if ai is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI service not ready")
@@ -40,9 +53,12 @@ async def detect(
 
     metadata_stmt = select(PlantMetadata).where(PlantMetadata.disease_type == label)
     metadata = (await session.execute(metadata_stmt)).scalar_one_or_none()
-    recommendation = metadata.treatment_recommendation if metadata else recommendation_for_label(label)
+    recommendation = recommendation_for_label(label)
+    if metadata is not None:
+        metadata.treatment_recommendation = recommendation
 
     digest = hashlib.sha256(image_bytes).hexdigest()
+    persist_scan_image(image_sha256=digest, image_bytes=image_bytes)
     scan = ScanHistory(
         user_id=current_user.id,
         disease_type=label,
@@ -67,6 +83,7 @@ async def detect(
         confidence_score=confidence,
         treatment_recommendations=recommendation,
         domain=domain,
+        image_sha256=digest,
         before_image_b64=before_b64,
         after_image_b64=after_b64,
     )

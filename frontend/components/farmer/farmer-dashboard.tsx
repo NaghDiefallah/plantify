@@ -4,33 +4,25 @@ import {motion} from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock3,
+  ImageIcon,
   Loader2,
-  TrendingUp,
-  UploadCloud,
-  Zap
+  Search,
+  Sparkles,
+  UploadCloud
 } from "lucide-react";
 import {useMemo, useState} from "react";
+import {useTranslations} from "next-intl";
 import {useDropzone} from "react-dropzone";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 
-import {BentoTile} from "@/components/ui/bento-tile";
 import {Button} from "@/components/ui/button";
-import {CircularGauge} from "@/components/ui/circular-gauge";
-import {ComparisonSlider} from "@/components/ui/comparison-slider";
-import {Sparkline} from "@/components/ui/sparkline";
-import {
-  FeedTileSkeleton,
-  MetricTileSkeleton,
-  ResultTileSkeleton,
-  UploadTileSkeleton
-} from "@/components/ui/tile-skeleton";
 import {cn} from "@/lib/utils";
 import {compressImage} from "@/hooks/use-image-compression";
 import {
   detectPlant,
   fetchHistory,
   fetchStats,
-  fetchTips,
   getStoredAccessToken
 } from "@/lib/api";
 import type {DetectionResult, ScanHistory} from "@/lib/types";
@@ -39,43 +31,79 @@ function createPreview(file: File | null): string | null {
   return file ? URL.createObjectURL(file) : null;
 }
 
-// ─── Status badge ──────────────────────────────────────────────────────────────
-function StatusBadge({status}: {status: string}) {
-  const busy = status !== "Idle" && status !== "Completed" && status !== "Failed";
+function parseTreatmentSections(text: string | null | undefined) {
+  const fallback = {
+    immediate: "",
+    next: "",
+    monitor: ""
+  };
+
+  if (!text) {
+    return fallback;
+  }
+
+  const sections = {...fallback};
+  for (const line of text.split(/\n+/g).map((part) => part.trim()).filter(Boolean)) {
+    const [label, ...rest] = line.split(":");
+    const body = rest.join(":").trim();
+    const normalized = label.toLowerCase();
+    if (normalized.startsWith("immediate")) {
+      sections.immediate = body;
+    } else if (normalized.startsWith("next")) {
+      sections.next = body;
+    } else if (normalized.startsWith("monitor")) {
+      sections.monitor = body;
+    }
+  }
+
+  return sections;
+}
+
+function ConfidenceBar({label, value}: {label: string; value: number}) {
+  const tone = value >= 75 ? "bg-[#22c55e]" : value >= 45 ? "bg-[#f59e0b]" : "bg-[#ef4444]";
+
   return (
-    <span
-      className={cn(
-        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest transition-all duration-300",
-        busy
-          ? "border-lumaris-lime/40 bg-lumaris-lime/10 text-lumaris-lime"
-          : status === "Completed"
-          ? "border-lumaris-green/40 bg-lumaris-green/10 text-lumaris-green"
-          : status === "Failed"
-          ? "border-red-500/40 bg-red-500/10 text-red-400"
-          : "border-lumaris-border bg-lumaris-surface text-zinc-500"
-      )}
-    >
-      {busy && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lumaris-lime" />}
-      {status}
-    </span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+        <span>{label}</span>
+        <span>{value.toFixed(1)}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-300/50 dark:bg-zinc-800">
+        <motion.div
+          className={cn("h-full rounded-full", tone)}
+          initial={{width: 0}}
+          animate={{width: `${Math.max(0, Math.min(100, value))}%`}}
+          transition={{duration: 0.45, ease: "easeOut"}}
+        />
+      </div>
+    </div>
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+function HistoryImage({row}: {row: ScanHistory}) {
+  const imageSrc = row.before_image_b64 ? `data:image/jpeg;base64,${row.before_image_b64}` : null;
+
+  if (imageSrc) {
+    return <img src={imageSrc} alt="Scan thumbnail" className="h-full w-full object-cover" />;
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-tertiary)]">
+      <ImageIcon className="h-4 w-4" />
+    </div>
+  );
+}
+
 export function FarmerDashboard() {
+  const t = useTranslations("dashboard");
   const queryClient = useQueryClient();
   const token = getStoredAccessToken();
 
+  const [query, setQuery] = useState("");
   const [original, setOriginal] = useState<File | null>(null);
-  const [compressionStatus, setCompressionStatus] = useState("Idle");
   const [result, setResult] = useState<DetectionResult | null>(null);
 
-  // ── Queries ────────────────────────────────────────────────────────────────
-  const statsQuery = useQuery({
-    queryKey: ["stats"],
-    queryFn: () => fetchStats(token ?? ""),
-    enabled: Boolean(token)
-  });
+  const previewUrl = useMemo(() => createPreview(original), [original]);
 
   const historyQuery = useQuery({
     queryKey: ["history"],
@@ -83,425 +111,237 @@ export function FarmerDashboard() {
     enabled: Boolean(token)
   });
 
-  const tipsQuery = useQuery({
-    queryKey: ["tips"],
-    queryFn: () => fetchTips(token ?? ""),
+  const statsQuery = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => fetchStats(token ?? ""),
     enabled: Boolean(token)
   });
 
-  // ── Mutation ───────────────────────────────────────────────────────────────
-  const mutation = useMutation({
+  const detectMutation = useMutation({
     mutationFn: async () => {
-      if (!original || !token) throw new Error("Upload an image and sign in first.");
-      setCompressionStatus("Compressing...");
-      const compressedOriginal = await compressImage(original);
-      setCompressionStatus("Analyzing models...");
+      if (!token) {
+        throw new Error(t("errors.signIn"));
+      }
+      if (!original) {
+        throw new Error(t("errors.upload"));
+      }
 
-      const automaticDomains: Array<"color" | "grayscale" | "segmented"> = ["color", "grayscale", "segmented"];
-      const responses = await Promise.all(
-        automaticDomains.map((domain) =>
-          detectPlant({
-            token,
-            image: compressedOriginal,
-            domain
-          })
-        )
-      );
-
-      return responses.reduce((best, current) =>
-        current.confidence_score > best.confidence_score ? current : best
-      );
+      const compressed = await compressImage(original);
+      return detectPlant({
+        token,
+        image: compressed,
+        domain: "color"
+      });
     },
     onSuccess: (payload) => {
       setResult(payload);
-      setCompressionStatus("Completed");
       void queryClient.invalidateQueries({queryKey: ["history"]});
       void queryClient.invalidateQueries({queryKey: ["stats"]});
-      void queryClient.invalidateQueries({queryKey: ["tips"]});
-    },
-    onError: () => setCompressionStatus("Failed")
+    }
   });
 
-  // ── Dropzones ──────────────────────────────────────────────────────────────
-  const imgAccept = {
-    "image/jpeg": [".jpg", ".jpeg"],
-    "image/png": [".png"],
-    "image/webp": [".webp"]
-  };
-  const originalZone = useDropzone({
+  const zone = useDropzone({
     multiple: false,
-    accept: imgAccept,
+    accept: {
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/webp": [".webp"]
+    },
     onDrop: (accepted) => setOriginal(accepted[0] ?? null)
   });
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-  const previewUrl = useMemo(() => createPreview(original), [original]);
+  const rows: ScanHistory[] = historyQuery.data ?? [];
+  const sortedRows = [...rows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const filteredRows = sortedRows.filter((row) => {
+    const haystack = `${row.disease_type} ${row.domain}`.toLowerCase();
+    return haystack.includes(query.toLowerCase());
+  });
 
-  const beforeSrc = useMemo(() => {
-    if (result?.before_image_b64) return `data:image/jpeg;base64,${result.before_image_b64}`;
-    return (
-      previewUrl ??
-      "https://images.unsplash.com/photo-1592841200221-3f3f82bcefcf?q=80&w=1200"
-    );
-  }, [result?.before_image_b64, previewUrl]);
+  const confidence = (result?.confidence_score ?? 0) * 100;
+  const treatment = parseTreatmentSections(result?.treatment_recommendations);
+  const isHealthy = result?.disease_type.toLowerCase().includes("healthy") ?? false;
 
-  const afterSrc = useMemo(() => {
-    if (result?.after_image_b64) return `data:image/jpeg;base64,${result.after_image_b64}`;
-    return beforeSrc;
-  }, [result?.after_image_b64, beforeSrc]);
-
-  const historyRows: ScanHistory[] = historyQuery.data ?? [];
-  const healthRatioPct = ((statsQuery.data?.healthy_ratio ?? 0) * 100).toFixed(1);
-  const confidencePct = (result?.confidence_score ?? 0) * 100;
-  const isHealthy = result?.disease_type?.toLowerCase().includes("healthy") ?? false;
-
-  const defaultTips = [
-    "Irrigate between 6–8 am to minimize evaporation loss",
-    "Inspect leaf undersides for mites and aphids weekly",
-    "Apply recommended fungicide at 14-day intervals",
-    "Remove infected leaves immediately to curb spread"
-  ];
-  const tips: string[] = tipsQuery.data ?? defaultTips;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const beforeSrc = result?.before_image_b64
+    ? `data:image/jpeg;base64,${result.before_image_b64}`
+    : previewUrl;
   return (
-    <section className="farmer-bento mx-auto max-w-[1400px] px-4 py-6">
-      {/* ═══════════════════════════════════════════════════════ SCAN TILE */}
-      <div className="area-scan">
-        {mutation.isPending && !original ? (
-          <UploadTileSkeleton />
-        ) : (
-          <BentoTile className="flex min-h-[600px] flex-col gap-4" layoutId="farmer-upload">
-            {/* -- header ---------------------------------------------------- */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "h-2 w-2 rounded-full transition-colors",
-                    mutation.isPending ? "animate-pulse bg-lumaris-lime" : "bg-lumaris-green"
-                  )}
-                />
-                <h2 className="text-sm font-semibold tracking-tight text-white">New Scan</h2>
-              </div>
-              <StatusBadge status={compressionStatus} />
-            </div>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">
+      <section className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("eyebrow")}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{t("title")}</h2>
+        </div>
+        <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto lg:min-w-[30rem]">
+          <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
+            <p className="text-xs text-[var(--text-tertiary)]">{t("snapshot.totalScans")}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{statsQuery.data?.total_scans ?? rows.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
+            <p className="text-xs text-[var(--text-tertiary)]">{t("snapshot.healthyRatio")}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{((statsQuery.data?.healthy_ratio ?? 0) * 100).toFixed(1)}%</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
+            <p className="text-xs text-[var(--text-tertiary)]">{t("snapshot.topDisease")}</p>
+            <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{statsQuery.data?.top_disease ?? t("snapshot.noDominantDisease")}</p>
+          </div>
+        </div>
+      </section>
 
-            {/* -- primary drop zone ----------------------------------------- */}
-            <div
-              {...originalZone.getRootProps()}
-              className={cn(
-                "relative flex flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed transition-all duration-300",
-                originalZone.isDragActive
-                  ? "border-lumaris-lime/70 bg-lumaris-lime/5 shadow-[0_0_28px_rgba(200,228,59,0.2)]"
-                  : original
-                  ? "border-lumaris-border bg-transparent"
-                  : "border-lumaris-muted bg-lumaris-surface/40 hover:border-zinc-500 hover:bg-lumaris-surface/70"
-              )}
-              style={{minHeight: "15rem"}}
-            >
-              <input {...originalZone.getInputProps()} />
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("scanIntake.title")}</h3>
+            <span className="text-xs text-[var(--text-tertiary)]">
+              {detectMutation.isPending ? t("scanIntake.statusProcessing") : original ? t("scanIntake.statusReady") : t("scanIntake.statusWaiting")}
+            </span>
+          </div>
 
-              {original && previewUrl ? (
-                <>
-                  <img
-                    src={previewUrl}
-                    alt="Leaf preview"
-                    className="h-full w-full object-cover"
-                  />
-                  {mutation.isPending && (
-                    <div className="absolute inset-0 bg-black/30">
-                      <div className="laser-line absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-lumaris-lime to-transparent opacity-90" />
-                    </div>
-                  )}
-                  <div className="absolute bottom-3 left-3">
-                    <span className="rounded-lg bg-black/70 px-2 py-1 text-[11px] font-medium text-zinc-300 backdrop-blur-sm">
-                      {original.name}
-                    </span>
+          <div
+            {...zone.getRootProps()}
+            className={cn(
+              "relative flex min-h-[22rem] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-4 transition",
+              zone.isDragActive ? "border-[#22c55e] bg-[#22c55e]/10" : "border-[var(--card-border)] bg-transparent"
+            )}
+          >
+            <input {...zone.getInputProps()} />
+            {previewUrl ? (
+              <>
+                <img src={previewUrl} alt="Leaf preview" className="h-full w-full rounded-xl object-cover" />
+                {detectMutation.isPending ? (
+                  <div className="absolute inset-0 bg-black/15">
+                    <div className="line-sweep absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#22c55e] to-transparent" />
                   </div>
-                </>
-              ) : (
-                <div className="pointer-events-none flex flex-col items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-lumaris-muted bg-lumaris-tile shadow-tile">
-                    <UploadCloud className="h-6 w-6 text-zinc-400" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-zinc-200">Drop your leaf scan here</p>
-                    <p className="mt-0.5 text-xs text-zinc-600">JPG · PNG · WebP — max 10 MB</p>
-                  </div>
-                  <span className="rounded-full border border-lumaris-border bg-lumaris-tile px-3 py-1 text-xs text-zinc-400">
-                    or click to browse
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-lumaris-muted/60 bg-lumaris-surface/30 px-3 py-2 text-xs text-zinc-500">
-              Automatic mode is enabled: Plantify selects the best analysis pipeline for your image.
-            </div>
-
-            {/* -- run button ------------------------------------------------ */}
-            <Button
-              type="button"
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !original}
-              className={cn(
-                "w-full gap-2 rounded-xl text-sm font-semibold transition-all duration-200",
-                !mutation.isPending
-                  ? "bg-lumaris-lime text-lumaris-dark hover:bg-[#d4ee42] hover:shadow-lime"
-                  : "bg-lumaris-lime/40 text-lumaris-dark/60"
-              )}
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analyzing…
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  Run Diagnosis
-                </>
-              )}
-            </Button>
-          </BentoTile>
-        )}
-      </div>
-
-      {/* ═══════════════════════════════════════════════════ RESULT TILE */}
-      <div className="area-result">
-        {mutation.isPending && !result ? (
-          <ResultTileSkeleton />
-        ) : (
-          <BentoTile className="flex min-h-[600px] flex-col gap-4">
-            {/* -- header ---------------------------------------------------- */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold tracking-tight text-white">
-                Analysis Result
-              </h2>
-              {result && (
-                <motion.span
-                  initial={{opacity: 0, scale: 0.85}}
-                  animate={{opacity: 1, scale: 1}}
-                  className={cn(
-                    "rounded-full border px-3 py-0.5 text-[11px] font-semibold",
-                    isHealthy
-                      ? "border-lumaris-green/30 bg-lumaris-green/10 text-lumaris-green"
-                      : "border-red-500/30 bg-red-500/10 text-red-400"
-                  )}
-                >
-                  {isHealthy ? "✓ Healthy" : "⚠ Diseased"}
-                </motion.span>
-              )}
-            </div>
-
-            {/* -- comparison slider ----------------------------------------- */}
-            <ComparisonSlider
-              beforeSrc={beforeSrc}
-              afterSrc={afterSrc}
-              beforeLabel="Source"
-              afterLabel="AI Output"
-              className="flex-1"
-            />
-
-            {/* -- confidence + disease card ---------------------------------- */}
-            <div className="flex items-center gap-4 rounded-2xl border border-lumaris-border bg-lumaris-tile p-4 shadow-tile">
-              <CircularGauge value={confidencePct} label="confidence" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    Detected Condition
-                  </p>
-                  <p className="mt-0.5 text-base font-semibold leading-snug text-white">
-                    {result?.disease_type ?? "—"}
-                  </p>
-                </div>
-                <p className="line-clamp-3 text-sm leading-relaxed text-zinc-400">
-                  {result?.treatment_recommendations ??
-                    "Upload a leaf image and run the diagnosis to receive an AI-generated treatment roadmap."}
-                </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="text-center">
+                <UploadCloud className="mx-auto h-8 w-8 text-[var(--text-tertiary)]" />
+                <p className="mt-3 text-sm font-medium text-[var(--text-primary)]">{t("scanIntake.dropzoneTitle")}</p>
+                <p className="mt-1 text-xs text-[var(--text-tertiary)]">JPG, PNG, or WEBP</p>
               </div>
-            </div>
-          </BentoTile>
-        )}
-      </div>
+            )}
+          </div>
 
-      {/* ══════════════════════════════════════════════════ HEALTH TILE */}
-      <div className="area-health">
-        {statsQuery.isLoading ? (
-          <MetricTileSkeleton />
-        ) : (
-          <BentoTile className="flex h-full flex-col justify-between gap-4">
-            {/* KPI number */}
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
-                Health Ratio
-              </p>
-              <motion.p
-                key={healthRatioPct}
-                initial={{opacity: 0, y: 6}}
-                animate={{opacity: 1, y: 0}}
-                className="mt-1.5 font-mono text-4xl font-semibold text-white"
-              >
-                {healthRatioPct}%
-              </motion.p>
-              <p className="mt-0.5 text-[11px] text-zinc-600">across all recorded scans</p>
-            </div>
+          <Button
+            type="button"
+            onClick={() => detectMutation.mutate()}
+            disabled={detectMutation.isPending || !original}
+            className="mt-4 h-11 w-full bg-[#22c55e] text-zinc-50 hover:bg-[#16a34a] active:scale-[0.98]"
+          >
+            {detectMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("scanIntake.scanning")}
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {t("scanIntake.cta")}
+              </>
+            )}
+          </Button>
 
-            {/* Progress bar */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px]">
-                <span className="text-lumaris-green">Healthy</span>
-                <span className="text-red-400">Diseased</span>
-              </div>
-              <div className="h-1 overflow-hidden rounded-full bg-lumaris-muted/30">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-lumaris-green to-lumaris-lime"
-                  initial={{width: "0%"}}
-                  animate={{width: `${healthRatioPct}%`}}
-                  transition={{duration: 0.9, ease: "easeOut"}}
-                />
-              </div>
-            </div>
-
-            {/* Secondary metrics */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-lumaris-border bg-lumaris-tile p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                  Top Disease
-                </p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-lumaris-lime">
-                  <TrendingUp className="h-3 w-3" />
-                  <span className="truncate">
-                    {statsQuery.data?.top_disease ?? "—"}
-                  </span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-lumaris-border bg-lumaris-tile p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                  Total Scans
-                </p>
-                <p className="mt-1 font-mono text-lg font-semibold text-white">
-                  {statsQuery.data?.total_scans ?? historyRows.length}
-                </p>
-              </div>
-            </div>
-          </BentoTile>
-        )}
-      </div>
-
-      {/* ═══════════════════════════════════════════════════ TIPS TILE */}
-      <div className="area-tips">
-        {tipsQuery.isLoading ? (
-          <MetricTileSkeleton />
-        ) : (
-          <BentoTile className="flex h-full flex-col gap-4">
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
-              Treatment Protocol
+          {detectMutation.error ? (
+            <p className="mt-3 rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-2 text-sm text-[#ef4444]">
+              {detectMutation.error instanceof Error ? detectMutation.error.message : t("errors.scan")}
             </p>
-            <ul className="flex flex-col gap-3">
-              {tips.slice(0, 4).map((tip, i) => (
-                <motion.li
-                  key={tip}
-                  initial={{opacity: 0, x: -8}}
-                  animate={{opacity: 1, x: 0}}
-                  transition={{delay: i * 0.07}}
-                  className="flex items-start gap-2.5"
-                >
-                  <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-lumaris-green/15 ring-1 ring-lumaris-green/20">
-                    <CheckCircle2 className="h-3 w-3 text-lumaris-green" />
-                  </div>
-                  <p className="text-sm leading-snug text-zinc-300">{tip}</p>
-                </motion.li>
-              ))}
-            </ul>
-          </BentoTile>
-        )}
-      </div>
+          ) : null}
+        </section>
 
-      {/* ════════════════════════════════════════════════════ FEED TILE */}
-      <div className="area-feed">
-        {historyQuery.isLoading ? (
-          <FeedTileSkeleton />
-        ) : (
-          <BentoTile className="flex flex-col gap-3 overflow-hidden">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
-                Recent Analyses
-              </p>
-              <span className="font-mono text-xs text-zinc-500">
-                {historyRows.length} entries
-              </span>
-            </div>
+        <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("result.title")}</h3>
+            {result ? <span className="text-xs text-[var(--text-tertiary)]">{t("result.domainLabel")} {result.domain}</span> : null}
+          </div>
 
-            {/* Scrollable feed list */}
-            <div className="max-h-52 divide-y divide-lumaris-border/40 overflow-y-auto">
-              {historyRows.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-8 text-zinc-600">
-                  <AlertTriangle className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No scans recorded yet.</p>
+          {result ? (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
+                {beforeSrc ? <img src={beforeSrc} alt="Scan source" className="h-56 w-full object-cover" /> : null}
+              </div>
+
+              <div className="rounded-2xl border border-[var(--card-border)] p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-lg font-semibold text-[var(--text-primary)]">{result.disease_type}</p>
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+                    isHealthy ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  )}>
+                    {isHealthy ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : <AlertTriangle className="mr-1 h-3.5 w-3.5" />}
+                    {isHealthy ? t("result.statusHealthy") : t("result.statusAttention")}
+                  </span>
                 </div>
-              ) : (
-                historyRows.map((row, idx) => {
-                  const isDangerous =
-                    row.confidence_score > 0.7 &&
-                    !row.disease_type.toLowerCase().includes("healthy");
-                  /** Rolling window of up to 5 prior confidence scores for sparkline */
-                  const windowData = historyRows
-                    .slice(Math.max(0, idx - 4), idx + 1)
-                    .map((r) => r.confidence_score);
+                <div className="mt-4">
+                  <ConfidenceBar label={t("result.metrics.modelConfidence")} value={confidence} />
+                </div>
+              </div>
 
-                  return (
-                    <motion.div
-                      key={row.id}
-                      initial={{opacity: 0}}
-                      animate={{opacity: 1}}
-                      transition={{delay: Math.min(idx * 0.04, 0.4)}}
-                      className="flex items-center gap-3 py-3"
-                    >
-                      {/* Status dot */}
-                      <span
-                        className={cn(
-                          "h-2 w-2 shrink-0 rounded-full",
-                          isDangerous ? "bg-red-400" : "bg-lumaris-green"
-                        )}
-                      />
-
-                      {/* Disease + confidence */}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-white">
-                          {row.disease_type}
-                        </p>
-                        <p className="font-mono text-[11px] text-zinc-500">
-                          {(row.confidence_score * 100).toFixed(1)}% confidence
-                        </p>
-                      </div>
-
-                      {/* Confidence sparkline */}
-                      <Sparkline
-                        data={windowData}
-                        color={isDangerous ? "#f87171" : "#C8E43B"}
-                        areaColor={isDangerous ? "#f87171" : "#C8E43B"}
-                      />
-
-                      {/* Status badge */}
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                          isDangerous
-                            ? "border-red-500/30 bg-red-500/10 text-red-400"
-                            : "border-lumaris-green/30 bg-lumaris-green/10 text-lumaris-green"
-                        )}
-                      >
-                        {isDangerous ? "Alert" : "Stable"}
-                      </span>
-                    </motion.div>
-                  );
-                })
-              )}
+              <div className="grid gap-3">
+                <div className="rounded-2xl border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{t("result.immediate")}</p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{treatment.immediate}</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{t("result.next")}</p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{treatment.next}</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{t("result.monitor")}</p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{treatment.monitor}</p>
+                </div>
+              </div>
             </div>
-          </BentoTile>
-        )}
+          ) : (
+            <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
+              <Clock3 className="h-7 w-7 text-[var(--text-tertiary)]" />
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("result.empty")}</p>
+            </div>
+          )}
+        </section>
       </div>
-    </section>
+
+      <section className="mt-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("history.title")}</h3>
+          <label className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("history.searchPlaceholder")}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            />
+          </label>
+        </div>
+
+        <div className="space-y-3">
+          {historyQuery.isLoading ? (
+            <p className="text-sm text-[var(--text-secondary)]">{t("history.loading")}</p>
+          ) : filteredRows.length === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)]">{t("history.empty")}</p>
+          ) : (
+            filteredRows.slice(0, 12).map((row) => (
+              <div key={row.id} className="grid gap-3 rounded-2xl border border-[var(--card-border)] p-3 md:grid-cols-[112px_1fr_auto] md:items-center">
+                <div className="h-24 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
+                  <HistoryImage row={row} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{row.disease_type}</p>
+                    <span className="text-xs uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{row.domain}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--text-tertiary)]">{new Date(row.created_at).toLocaleString()}</p>
+                  <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">{row.recommendation}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{(row.confidence_score * 100).toFixed(1)}%</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </main>
   );
 }

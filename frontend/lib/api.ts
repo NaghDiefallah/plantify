@@ -60,16 +60,81 @@ function authHeaders(token?: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
 
+function generateRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `fe-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function resolveFallbackApiBase(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  }
+  return "http://localhost:8000/api";
+}
+
+function withFallbackBase(input: RequestInfo | URL): RequestInfo | URL {
+  if (typeof input !== "string") {
+    return input;
+  }
+  if (!input.startsWith("/api/")) {
+    return input;
+  }
+  const fallbackBase = resolveFallbackApiBase();
+  return `${fallbackBase}${input.slice(4)}`;
+}
+
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("X-Request-ID")) {
+    headers.set("X-Request-ID", generateRequestId());
+  }
+
+  try {
+    return await fetch(input, { ...init, headers });
+  } catch {
+    if (typeof input === "string" && input.startsWith("/api/")) {
+      try {
+        return await fetch(withFallbackBase(input), {...init, headers});
+      } catch {
+        throw new Error("Unable to reach Plantify backend. Please start backend server on port 8000.");
+      }
+    }
+    throw new Error("Unable to reach Plantify backend. Please start backend server on port 8000.");
+  }
+}
+
+export function logApiError(context: {
+  endpoint: string;
+  status: number;
+  message: string;
+  requestId?: string;
+}): void {
+  const entry = { ts: new Date().toISOString(), ...context };
+  console.error(JSON.stringify(entry));
+}
+
+async function handleApiError(
+  res: Response,
+  endpoint: string,
+  fallbackMessage: string
+): Promise<never> {
+  const requestId = res.headers.get("x-request-id") ?? undefined;
+  const message = await readErrorMessage(res, fallbackMessage);
+  logApiError({ endpoint, status: res.status, message, requestId });
+  throw new Error(message);
+}
+
 export async function login(email: string, password: string) {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const res = await apiFetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
   });
 
   if (!res.ok) {
-    const message = await readErrorMessage(res, "Invalid credentials");
-    throw new Error(message);
+    await handleApiError(res, "auth/login", "Invalid credentials");
   }
 
   return res.json() as Promise<AuthTokens>;
@@ -81,7 +146,7 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
     return null;
   }
 
-  const res = await fetch(`${API_BASE}/auth/refresh`, {
+  const res = await apiFetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken })
@@ -128,7 +193,7 @@ export async function logoutCurrentSession(): Promise<void> {
   }
 
   try {
-    await fetch(`${API_BASE}/auth/logout`, {
+    await apiFetch(`${API_BASE}/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken })
@@ -139,15 +204,14 @@ export async function logoutCurrentSession(): Promise<void> {
 }
 
 export async function signup(payload: { email: string; full_name: string; password: string }) {
-  const res = await fetch(`${API_BASE}/auth/signup`, {
+  const res = await apiFetch(`${API_BASE}/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
   if (!res.ok) {
-    const message = await readErrorMessage(res, "Unable to create account");
-    throw new Error(message);
+    await handleApiError(res, "auth/signup", "Unable to create account");
   }
 
   return res.json() as Promise<UserProfile>;
@@ -175,7 +239,7 @@ async function readErrorMessage(response: Response, fallbackMessage: string): Pr
 
 export async function fetchProfile(token: string): Promise<UserProfile> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/users/me`, {
+    apiFetch(`${API_BASE}/users/me`, {
       headers: {
         ...authHeaders(authToken)
       }
@@ -184,7 +248,7 @@ export async function fetchProfile(token: string): Promise<UserProfile> {
   );
 
   if (!res.ok) {
-    throw new Error("Unauthorized");
+    await handleApiError(res, "users/me", "Unauthorized");
   }
 
   return res.json() as Promise<UserProfile>;
@@ -192,7 +256,7 @@ export async function fetchProfile(token: string): Promise<UserProfile> {
 
 export async function fetchUsers(token: string): Promise<UserProfile[]> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/users`, {
+    apiFetch(`${API_BASE}/users`, {
       headers: {
         ...authHeaders(authToken)
       }
@@ -201,7 +265,7 @@ export async function fetchUsers(token: string): Promise<UserProfile[]> {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load users");
+    await handleApiError(res, "users", "Failed to load users");
   }
 
   return res.json() as Promise<UserProfile[]>;
@@ -213,7 +277,7 @@ export async function updateUserRole(input: {
   payload: UserRoleUpdatePayload;
 }): Promise<UserProfile> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/users/${input.userId}/role`, {
+    apiFetch(`${API_BASE}/users/${input.userId}/role`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -225,7 +289,7 @@ export async function updateUserRole(input: {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to update user role");
+    await handleApiError(res, "users/role", "Failed to update user role");
   }
 
   return res.json() as Promise<UserProfile>;
@@ -236,7 +300,7 @@ export async function redeemRoleByCode(input: {
   payload: RoleCodeUpdatePayload;
 }): Promise<UserProfile> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/users/self/role/by-code`, {
+    apiFetch(`${API_BASE}/users/self/role/by-code`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -248,8 +312,7 @@ export async function redeemRoleByCode(input: {
   );
 
   if (!res.ok) {
-    const message = await readErrorMessage(res, "Failed to apply role code");
-    throw new Error(message);
+    await handleApiError(res, "users/role/by-code", "Failed to apply role code");
   }
 
   return res.json() as Promise<UserProfile>;
@@ -257,7 +320,7 @@ export async function redeemRoleByCode(input: {
 
 export async function fetchHistory(token: string): Promise<ScanHistory[]> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/dashboard/history`, {
+    apiFetch(`${API_BASE}/dashboard/history`, {
       headers: {
         ...authHeaders(authToken)
       }
@@ -266,7 +329,7 @@ export async function fetchHistory(token: string): Promise<ScanHistory[]> {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load history");
+    await handleApiError(res, "dashboard/history", "Failed to load history");
   }
 
   return res.json() as Promise<ScanHistory[]>;
@@ -274,7 +337,7 @@ export async function fetchHistory(token: string): Promise<ScanHistory[]> {
 
 export async function fetchStats(token: string): Promise<DashboardStats> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/dashboard/stats`, {
+    apiFetch(`${API_BASE}/dashboard/stats`, {
       headers: {
         ...authHeaders(authToken)
       }
@@ -283,7 +346,7 @@ export async function fetchStats(token: string): Promise<DashboardStats> {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load stats");
+    await handleApiError(res, "dashboard/stats", "Failed to load stats");
   }
 
   return res.json() as Promise<DashboardStats>;
@@ -291,7 +354,7 @@ export async function fetchStats(token: string): Promise<DashboardStats> {
 
 export async function fetchTips(token: string): Promise<string[]> {
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/dashboard/tips`, {
+    apiFetch(`${API_BASE}/dashboard/tips`, {
       headers: {
         ...authHeaders(authToken)
       }
@@ -300,7 +363,7 @@ export async function fetchTips(token: string): Promise<string[]> {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load tips");
+    await handleApiError(res, "dashboard/tips", "Failed to load tips");
   }
 
   return res.json() as Promise<string[]>;
@@ -320,7 +383,7 @@ export async function detectPlant(input: {
   }
 
   const res = await authFetch(async (authToken) =>
-    fetch(`${API_BASE}/detect`, {
+    apiFetch(`${API_BASE}/detect`, {
       method: "POST",
       headers: {
         ...authHeaders(authToken)
@@ -331,7 +394,7 @@ export async function detectPlant(input: {
   );
 
   if (!res.ok) {
-    throw new Error("Detection failed");
+    await handleApiError(res, "detect", "Detection failed");
   }
 
   return res.json() as Promise<DetectionResult>;

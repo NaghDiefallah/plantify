@@ -1,0 +1,148 @@
+name: Deploy .env Files to VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-env-to-vps.yml'
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  VPS_APP_DIR: /root/plantify
+
+jobs:
+  deploy-env:
+    name: Deploy Environment Files to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate backend .env file
+        run: |
+          cat > /tmp/backend.env << 'EOF'
+          APP_ENV=${{ github.event.inputs.target_env || 'production' }}
+          SECRET_KEY=${{ secrets.BACKEND_SECRET_KEY }}
+          ROLE_ELEVATION_CODE=${{ secrets.ROLE_ELEVATION_CODE }}
+          ACCESS_TOKEN_EXPIRE_MINUTES=1440
+          REFRESH_TOKEN_EXPIRE_DAYS=30
+          JWT_ISSUER=plantify-api
+          JWT_AUDIENCE=plantify-clients
+          SQLITE_PATH=/data/plantify.db
+          MODEL_PATH=/app/model/plantify_model.onnx
+          LABELS_PATH=/app/model/classes.json
+          CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+          CORS_ALLOW_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+          CORS_ALLOW_HEADERS=Authorization,Content-Type,Accept,Origin,X-Request-ID
+          SECURITY_CSP=default-src 'none'; frame-ancestors 'none'; base-uri 'none'
+          SECURITY_HSTS_MAX_AGE_SECONDS=31536000
+          SQLITE_JOURNAL_MODE=WAL
+          SQLITE_SYNCHRONOUS=NORMAL
+          SQLITE_BUSY_TIMEOUT_MS=5000
+          SQLITE_FOREIGN_KEYS=true
+          UPLOAD_MAX_BYTES=5242880
+          UPLOAD_ALLOWED_MIME_TYPES=image/jpeg,image/png,image/webp
+          RATE_LIMIT_SIGNUP_PER_MINUTE=${{ secrets.RATE_LIMIT_SIGNUP_PER_MINUTE || '5' }}
+          RATE_LIMIT_LOGIN_PER_MINUTE=${{ secrets.RATE_LIMIT_LOGIN_PER_MINUTE || '10' }}
+          RATE_LIMIT_DETECT_PER_MINUTE=${{ secrets.RATE_LIMIT_DETECT_PER_MINUTE || '30' }}
+          SLO_TARGET_AVAILABILITY=0.99
+          SLO_TARGET_P95_SECONDS=0.75
+          SLO_MIN_REQUESTS_FOR_EVALUATION=100
+          EOF
+
+      - name: Generate frontend .env file
+        run: |
+          cat > /tmp/frontend.env << 'EOF'
+          NEXT_PUBLIC_API_BASE_URL=${{ secrets.FRONTEND_API_BASE_URL }}
+          NEXT_PUBLIC_BUILD_ENV=${{ github.event.inputs.target_env || 'production' }}
+          NEXT_PUBLIC_ENABLE_ANALYTICS=true
+          EOF
+
+      - name: Validate generated files
+        run: |
+          echo "=== Backend .env ===" && cat /tmp/backend.env
+          echo ""
+          echo "=== Frontend .env ===" && cat /tmp/frontend.env
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # Create app directory if it doesn't exist
+            mkdir -p ${{ env.VPS_APP_DIR }}/backend
+            mkdir -p ${{ env.VPS_APP_DIR }}/frontend
+
+            # Backup existing .env files
+            [ -f ${{ env.VPS_APP_DIR }}/backend/.env ] && cp ${{ env.VPS_APP_DIR }}/backend/.env ${{ env.VPS_APP_DIR }}/backend/.env.backup.$(date +%s)
+            [ -f ${{ env.VPS_APP_DIR }}/frontend/.env.local ] && cp ${{ env.VPS_APP_DIR }}/frontend/.env.local ${{ env.VPS_APP_DIR }}/frontend/.env.local.backup.$(date +%s)
+
+            # Update permissions to ensure only root can read
+            umask 0077
+
+      - name: Upload backend .env
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: /tmp/backend.env
+          target: ${{ env.VPS_APP_DIR }}/backend/.env
+          strip_prefix: /tmp/
+
+      - name: Upload frontend .env
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: /tmp/frontend.env
+          target: ${{ env.VPS_APP_DIR }}/frontend/.env.local
+          strip_prefix: /tmp/
+
+      - name: Verify deployment and restart services
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "✓ Backend .env deployed"
+            ls -lh ${{ env.VPS_APP_DIR }}/backend/.env
+            
+            echo "✓ Frontend .env deployed"
+            ls -lh ${{ env.VPS_APP_DIR }}/frontend/.env.local
+            
+            echo "✓ Environment files ready. Run 'docker compose -f docker-compose.prod.yml restart' to reload."
+
+      - name: Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "Environment deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Environment Deployment* `${{ job.status }}`\nTarget: `${{ github.event.inputs.target_env || 'production' }}`"
+                  }
+                }
+              ]
+            }

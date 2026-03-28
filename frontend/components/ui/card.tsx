@@ -1,11 +1,89 @@
 import type { HTMLAttributes } from "react";
-
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+type CardProps = HTMLAttributes<HTMLDivElement> & {
+  interactive?: boolean;
+  glow?: boolean;
+};
+
+export function Card({
+  className,
+  interactive = false,
+  glow = false,
+  ...props
+}: CardProps) {
   return (
     <div
-      className={cn("rounded-2xl border border-border/70 bg-card/80 p-5 shadow-[0_1px_30px_rgba(0,0,0,0.15)] backdrop-blur", className)}
+      className={cn(
+        "rounded-xl border border-card-border bg-card-bg transition-all duration-200",
+        glow && "shadow-lime dark:shadow-lime-md hover:shadow-lime-lg",
+        !glow && "shadow-sm dark:shadow-glass",
+        interactive && "cursor-pointer hover:shadow-md dark:hover:shadow-glass-sm hover:border-accent/50 active:scale-[0.98]",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export function CardHeader({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("flex flex-col space-y-1.5 p-6", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardTitle({
+  className,
+  ...props
+}: HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h2
+      className={cn(
+        "text-2xl font-bold tracking-tight text-text-primary",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export function CardDescription({
+  className,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      className={cn("text-sm text-text-secondary", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardContent({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("p-6 pt-0", className)} {...props} />
+  );
+}
+
+export function CardFooter({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between border-t border-card-border p-6 pt-4",
+        className
+      )}
       {...props}
     />
   );
