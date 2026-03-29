@@ -173,8 +173,8 @@ export function AgriBotWidget({
   };
 
   const positionClasses = {
-    "bottom-right": "bottom-3 left-3 right-3 sm:bottom-6 sm:right-6 sm:left-auto",
-    "bottom-left": "bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-auto",
+    "bottom-right": "bottom-3 right-3 sm:bottom-6 sm:right-6",
+    "bottom-left": "bottom-3 left-3 sm:bottom-6 sm:left-6",
   };
 
   const widget = (
@@ -191,7 +191,7 @@ export function AgriBotWidget({
             transition={{ duration: 0.3 }}
             className="mb-4"
           >
-            <Card className="w-full max-w-[22rem] h-[70dvh] max-h-[32rem] sm:w-96 sm:h-96 flex flex-col shadow-lg dark:shadow-lime-lg">
+            <Card className="w-[min(22rem,calc(100vw-1rem))] h-[70dvh] max-h-[32rem] sm:w-96 sm:h-96 flex flex-col shadow-lg dark:shadow-lime-lg">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-card-border p-4">
                 <div>
