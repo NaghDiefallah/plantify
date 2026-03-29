@@ -31,8 +31,6 @@ services:
     container_name: plantify-ollama
     volumes:
       - ollama_data:/root/.ollama
-    ports:
-      - "127.0.0.1:11434:11434"
     restart: unless-stopped
 
   frontend:
