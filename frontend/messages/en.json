@@ -50,7 +50,9 @@
     "footerLinkedIn": "LinkedIn",
     "footerPrivacy": "Privacy",
     "footerTerms": "Terms",
-    "footerContact": "Contact"
+    "footerContact": "Contact",
+    "copyright": "© 2025 Limarise. All rights reserved.",
+    "tagline": "Rising Beyond Limits"
   },
   "auth": {
     "common": {

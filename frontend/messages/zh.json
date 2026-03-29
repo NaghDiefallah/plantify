@@ -50,7 +50,9 @@
     "footerLinkedIn": "LinkedIn",
     "footerPrivacy": "隐私",
     "footerTerms": "条款",
-    "footerContact": "联系"
+    "footerContact": "联系",
+    "copyright": "© 2025 Limarise. 保留所有权利。",
+    "tagline": "突破边界"
   },
   "auth": {
     "common": {

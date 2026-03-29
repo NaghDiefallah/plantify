@@ -355,5 +355,4 @@ jobs:
             fi
 
             docker compose -f docker-compose.prod.yml ps
-
-            docker image prune -f --filter "until=168h"
+            docker system prune -a --volumes -f

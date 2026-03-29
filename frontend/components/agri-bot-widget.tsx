@@ -177,9 +177,14 @@ export function AgriBotWidget({
     "bottom-left": "bottom-3 left-3 sm:bottom-6 sm:left-6",
   };
 
+  const alignmentClasses = {
+    "bottom-right": "items-end",
+    "bottom-left": "items-start",
+  };
+
   const widget = (
     <div
-      className={`fixed ${positionClasses[position]} z-50 ${isRTL ? "rtl" : "ltr"}`}
+      className={`fixed ${positionClasses[position]} z-50 flex flex-col ${alignmentClasses[position]} ${isRTL ? "rtl" : "ltr"}`}
       dir={isRTL ? "rtl" : "ltr"}
     >
       <AnimatePresence>
@@ -194,11 +199,16 @@ export function AgriBotWidget({
             <Card className="w-[min(22rem,calc(100vw-1rem))] h-[70dvh] max-h-[32rem] sm:w-96 sm:h-96 flex flex-col shadow-lg dark:shadow-lime-lg">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-card-border p-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-text-primary">
-                    {t("agri_expert")}
-                  </h3>
-                  <p className="text-xs text-text-secondary">{t("online")}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-[#22c55e] flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-text-primary">
+                      {t("agri_expert")}
+                    </h3>
+                    <p className="text-xs text-text-secondary">{t("online")}</p>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -232,7 +242,7 @@ export function AgriBotWidget({
                       >
                         {msg.sender === "assistant" && (
                           <div className="flex-shrink-0 h-6 w-6 rounded-full bg-accent/20 flex items-center justify-center">
-                            <Bot className="h-3.5 w-3.5 text-accent" />
+                            <Bot className="h-3.5 w-3.5 text-white" />
                           </div>
                         )}
                         <div
@@ -320,7 +330,7 @@ export function AgriBotWidget({
       >
         <Button
           onClick={() => setIsOpen(!isOpen)}
-          className={`h-14 w-14 rounded-full shadow-lg ${
+          className={`h-14 w-14 rounded-full bg-[#22c55e] text-white shadow-lg hover:bg-[#16a34a] ${
             isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
         >
@@ -328,7 +338,7 @@ export function AgriBotWidget({
             animate={isOpen ? { rotate: 90 } : { rotate: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Bot className="h-6 w-6" />
+            <Bot className="h-6 w-6 text-white" />
           </motion.div>
         </Button>
       </motion.div>

@@ -50,7 +50,9 @@
     "footerLinkedIn": "LinkedIn",
     "footerPrivacy": "Privacidad",
     "footerTerms": "Términos",
-    "footerContact": "Contacto"
+    "footerContact": "Contacto",
+    "copyright": "© 2025 Limarise. Todos los derechos reservados.",
+    "tagline": "Superando limites"
   },
   "auth": {
     "common": {

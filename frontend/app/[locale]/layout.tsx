@@ -4,6 +4,7 @@ import {getMessages, setRequestLocale} from "next-intl/server";
 import {notFound} from "next/navigation";
 
 import {GlassNav} from "@/components/layout/glass-nav";
+import {SiteFooter} from "@/components/layout/site-footer";
 import {AppProviders} from "@/components/providers/app-providers";
 import {LocaleSync} from "@/components/ui/locale-sync";
 import {routing} from "@/i18n/routing";
@@ -32,6 +33,7 @@ export default async function LocaleLayout({
           <LocaleSync />
           <GlassNav />
           {children}
+          <SiteFooter />
         </div>
       </AppProviders>
     </NextIntlClientProvider>

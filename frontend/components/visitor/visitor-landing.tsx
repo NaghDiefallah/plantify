@@ -159,7 +159,7 @@ export function VisitorLanding() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("teamEyebrow")}</p>
         <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">{t("teamTitle")}</h2>
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-7 -mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-2 touch-pan-x">
           {team.map((member, index) => (
             <motion.article
               key={member.name}
@@ -168,7 +168,7 @@ export function VisitorLanding() {
               whileInView="show"
               viewport={{once: true, amount: 0.2}}
               transition={{duration: 0.35, delay: index * 0.05}}
-              className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+              className="min-w-[14.5rem] sm:min-w-[17rem] snap-start rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
             >
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)]">
                 <CircleUserRound className="h-5 w-5 text-[var(--text-secondary)]" />
@@ -179,13 +179,6 @@ export function VisitorLanding() {
           ))}
         </div>
       </section>
-
-      <footer className="mt-20 border-t border-[var(--card-border)] py-8">
-        <div className="flex flex-col items-center gap-1 text-sm text-[var(--text-tertiary)]">
-          <p>© 2026 Limarise. All rights reserved.</p>
-          <p className="text-xs tracking-widest uppercase text-[var(--text-quaternary)]">Rising Beyond Limits</p>
-        </div>
-      </footer>
 
       <AgriBotWidget position="bottom-right" />
     </main>
