@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function AgriBotWidget({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,6 +69,10 @@ export function AgriBotWidget({
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
@@ -171,7 +177,7 @@ export function AgriBotWidget({
     "bottom-left": "bottom-3 left-3 sm:bottom-6 sm:left-6",
   };
 
-  return (
+  const widget = (
     <div
       className={`fixed ${positionClasses[position]} z-50 ${isRTL ? "rtl" : "ltr"}`}
       dir={isRTL ? "rtl" : "ltr"}
@@ -185,7 +191,7 @@ export function AgriBotWidget({
             transition={{ duration: 0.3 }}
             className="mb-4"
           >
-            <Card className="w-[calc(100vw-1.5rem)] max-w-sm h-[70dvh] max-h-[32rem] sm:w-96 sm:h-96 flex flex-col shadow-lg dark:shadow-lime-lg">
+            <Card className="w-[min(22rem,calc(100vw-1rem))] h-[70dvh] max-h-[32rem] sm:w-96 sm:h-96 flex flex-col shadow-lg dark:shadow-lime-lg">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-card-border p-4">
                 <div>
@@ -328,4 +334,10 @@ export function AgriBotWidget({
       </motion.div>
     </div>
   );
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(widget, document.body);
 }
