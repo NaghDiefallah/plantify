@@ -51,7 +51,7 @@ jobs:
             --onnx backend/model/plantify_model.onnx \
             --labels backend/model/classes.json \
             --dataset dataset/color \
-            --max-samples ${BASELINE_MAX_SAMPLES} \
+            --max-samples "${BASELINE_MAX_SAMPLES}" \
             --out /tmp/model-baseline-eval.json
 
       - name: Register model artifact metadata

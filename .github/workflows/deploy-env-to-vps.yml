@@ -38,7 +38,8 @@ jobs:
 
       - name: Generate backend .env file
         run: |
-          cat > /tmp/backend.env << 'EOF'
+          mkdir -p .github/.tmp-env
+          cat > .github/.tmp-env/backend.env << 'EOF'
           APP_ENV=${{ github.event.inputs.target_env || 'production' }}
           SECRET_KEY=${{ secrets.BACKEND_SECRET_KEY }}
           ROLE_ELEVATION_CODE=${{ secrets.ROLE_ELEVATION_CODE }}
@@ -70,7 +71,7 @@ jobs:
 
       - name: Generate frontend .env file
         run: |
-          cat > /tmp/frontend.env << 'EOF'
+          cat > .github/.tmp-env/frontend.env << 'EOF'
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.FRONTEND_API_BASE_URL }}
           NEXT_PUBLIC_BUILD_ENV=${{ github.event.inputs.target_env || 'production' }}
           NEXT_PUBLIC_ENABLE_ANALYTICS=true
@@ -78,10 +79,10 @@ jobs:
 
       - name: Validate generated files metadata
         run: |
-          test -s /tmp/backend.env
-          test -s /tmp/frontend.env
-          echo "backend.env lines: $(wc -l < /tmp/backend.env)"
-          echo "frontend.env lines: $(wc -l < /tmp/frontend.env)"
+          test -s .github/.tmp-env/backend.env
+          test -s .github/.tmp-env/frontend.env
+          echo "backend.env lines: $(wc -l < .github/.tmp-env/backend.env)"
+          echo "frontend.env lines: $(wc -l < .github/.tmp-env/frontend.env)"
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -109,9 +110,9 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          source: /tmp/backend.env
+          source: .github/.tmp-env/backend.env
           target: ${{ env.VPS_APP_DIR }}/backend
-          strip_components: 1
+          strip_components: 2
 
       - name: Upload frontend .env
         uses: appleboy/scp-action@v0.1.7
@@ -120,9 +121,9 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          source: /tmp/frontend.env
+          source: .github/.tmp-env/frontend.env
           target: ${{ env.VPS_APP_DIR }}/frontend
-          strip_components: 1
+          strip_components: 2
 
       - name: Verify deployment and restart services
         uses: appleboy/ssh-action@v1.2.0
@@ -146,4 +147,8 @@ jobs:
             ls -lh ${{ env.VPS_APP_DIR }}/frontend/.env.local
             
             echo "✓ Environment files ready. Run 'docker compose -f docker-compose.prod.yml restart' to reload."
+
+      - name: Remove temporary env files
+        if: always()
+        run: rm -rf .github/.tmp-env
 
