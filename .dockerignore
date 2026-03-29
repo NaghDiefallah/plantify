@@ -3,3 +3,6 @@ dataset/
 __pycache__/
 .streamlit/
 .git/
+frontend/.env.local
+frontend/.next/
+frontend/node_modules/

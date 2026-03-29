@@ -9,10 +9,36 @@ import type {
   UserRoleUpdatePayload
 } from "@/lib/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "/api";
+const API_BASE = resolveApiBase();
 const ACCESS_TOKEN_KEY = "plantify_access_token";
 const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function resolveApiBase(): string {
+  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (typeof window === "undefined") {
+    return configuredBase || "/api";
+  }
+
+  if (!configuredBase) {
+    return "/api";
+  }
+
+  try {
+    const configuredUrl = new URL(configuredBase, window.location.origin);
+    if (isLocalHostname(configuredUrl.hostname) && !isLocalHostname(window.location.hostname)) {
+      return "/api";
+    }
+    return configuredBase;
+  } catch {
+    return configuredBase;
+  }
+}
 
 export function getStoredAccessToken(): string | null {
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -69,7 +95,10 @@ function generateRequestId(): string {
 
 function resolveFallbackApiBase(): string {
   if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    if (isLocalHostname(window.location.hostname)) {
+      return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    }
+    return "/api";
   }
   return "http://localhost:8000/api";
 }
@@ -98,11 +127,18 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
       try {
         return await fetch(withFallbackBase(input), {...init, headers});
       } catch {
-        throw new Error("Unable to reach Plantify backend. Please start backend server on port 8000.");
+        throw new Error(resolveBackendUnavailableMessage());
       }
     }
-    throw new Error("Unable to reach Plantify backend. Please start backend server on port 8000.");
+    throw new Error(resolveBackendUnavailableMessage());
   }
+}
+
+function resolveBackendUnavailableMessage(): string {
+  if (typeof window !== "undefined" && isLocalHostname(window.location.hostname)) {
+    return "Unable to reach Plantify backend. Please start backend server on port 8000.";
+  }
+  return "Unable to reach Plantify backend. Please verify the deployed API is reachable.";
 }
 
 export function logApiError(context: {

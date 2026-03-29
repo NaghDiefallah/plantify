@@ -140,6 +140,9 @@ jobs:
           context: .
           file: frontend/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=/api
+            NEXT_PUBLIC_BACKEND_ORIGIN=http://backend:8000
           tags: |
             ${{ steps.vars.outputs.image_prefix }}-frontend:latest
             ${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}
