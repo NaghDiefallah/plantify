@@ -105,25 +105,37 @@ jobs:
                       h.update(chunk)
               return h.hexdigest()
 
-          def resolve_any(*candidates: str) -> Path:
-              for candidate in candidates:
-                  path = Path(candidate)
-                  if path.exists():
-                      return path
-              raise FileNotFoundError(f"None of the artifact paths exist: {candidates}")
-
-          files = [
-              resolve_any('plantify_model.pth', 'backend/plantify_model.pth'),
-              resolve_any('model/plantify_model.onnx', 'backend/model/plantify_model.onnx'),
-              resolve_any('model/classes.json', 'backend/model/classes.json'),
-              resolve_any('model/model_registry.json', 'backend/model/model_registry.json'),
-          ]
+            artifact_candidates = {
+              'checkpoint': ('plantify_model.pth', 'backend/plantify_model.pth'),
+              'onnx': ('model/plantify_model.onnx', 'backend/model/plantify_model.onnx'),
+              'labels': ('model/classes.json', 'backend/model/classes.json'),
+              'registry': ('model/model_registry.json', 'backend/model/model_registry.json'),
+            }
 
           artifacts = {}
-          for file in files:
-              artifacts[str(file).replace('\\', '/')] = {
-                  'sha256': sha256(file),
-                  'size_bytes': file.stat().st_size,
+            missing_artifacts = []
+
+            for logical_name, candidates in artifact_candidates.items():
+              resolved_path = None
+              for candidate in candidates:
+                path = Path(candidate)
+                if path.exists():
+                  resolved_path = path
+                  break
+
+              if resolved_path is None:
+                missing_artifacts.append(
+                  {
+                    'name': logical_name,
+                    'candidates': list(candidates),
+                  }
+                )
+                continue
+
+              artifacts[str(resolved_path).replace('\\', '/')] = {
+                'logical_name': logical_name,
+                'sha256': sha256(resolved_path),
+                'size_bytes': resolved_path.stat().st_size,
               }
 
           manifest = {
@@ -134,6 +146,7 @@ jobs:
               'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT', ''),
               'workflow': os.environ.get('GITHUB_WORKFLOW', ''),
               'artifacts': artifacts,
+                'missing_artifacts': missing_artifacts,
           }
 
           out = Path('/tmp/release-traceability.json')

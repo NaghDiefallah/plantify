@@ -75,6 +75,7 @@ jobs:
           APP_ENV: production
           SECRET_KEY: this-is-a-ci-validation-secret-key-with-32-chars
           ROLE_ELEVATION_CODE: this-is-a-ci-role-elevation-code
+          CORS_ORIGINS: https://plantify.example.com
           SQLITE_PATH: /tmp/plantify-ci.db
         run: python -c "from app.core.config import Settings; Settings()"
 
