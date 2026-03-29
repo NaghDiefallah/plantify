@@ -9,6 +9,10 @@ on:
 permissions:
   actions: read
 
+defaults:
+  run:
+    shell: sh
+
 jobs:
   notify:
     name: Send Telegram Notification
@@ -19,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
@@ -65,17 +69,17 @@ jobs:
           run_url = os.environ.get("RUN_URL", "")
           actor = os.environ.get("ACTOR", "")
           commit_msg = os.environ.get("COMMIT_MSG", "No commit message available")
-            chatbot_model = os.environ.get("CHATBOT_MODEL_NAME", "mistral")
+          chatbot_model = os.environ.get("CHATBOT_MODEL_NAME", "mistral")
 
-            plant_model_version = "unknown"
-            registry_path = os.path.join("backend", "model", "model_registry.json")
-            if os.path.exists(registry_path):
+          plant_model_version = "unknown"
+          registry_path = os.path.join("backend", "model", "model_registry.json")
+          if os.path.exists(registry_path):
               try:
-                with open(registry_path, "r", encoding="utf-8") as handle:
-                  registry = json.load(handle)
-                plant_model_version = registry.get("active_version") or "unknown"
+                  with open(registry_path, "r", encoding="utf-8") as handle:
+                      registry = json.load(handle)
+                  plant_model_version = registry.get("active_version") or "unknown"
               except Exception:
-                plant_model_version = "unknown"
+                  plant_model_version = "unknown"
 
           status_map = {
               "success": ("✅", "Successful"),
@@ -106,6 +110,9 @@ jobs:
               f"└ <code>{html.escape(plant_model_version)}</code>\n\n"
               "🤖 <b>Chatbot Model</b>\n"
               f"└ <code>{html.escape(chatbot_model)}</code>\n\n"
+              "🗂️ <b>Env Sync</b>\n"
+              "└ <code>.env</code>, <code>backend/.env</code>, <code>frontend/.env.production</code>\n"
+              "└ Provisioned automatically during deploy\n\n"
               "🕐 <b>Timestamp</b>\n"
               f"└ {html.escape(timestamp)}\n\n"
               "━━━━━━━━━━━━━━━━━━━━━━━━\n"
