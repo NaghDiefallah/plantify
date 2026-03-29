@@ -1,4 +1,4 @@
-FROM python:3.11-alpine AS builder
+FROM python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
@@ -15,10 +15,11 @@ ENV MODEL_BOOTSTRAP_CLASSES=${MODEL_BOOTSTRAP_CLASSES} \
 	GITHUB_SHA=${GITHUB_SHA} \
 	GITHUB_RUN_ID=${GITHUB_RUN_ID}
 
-RUN apk add --no-cache --virtual .build-deps \
-	build-base \
-	libffi-dev \
-	openssl-dev \
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		build-essential \
+		libffi-dev \
+	&& rm -rf /var/lib/apt/lists/* \
 	&& python -m venv /opt/venv
 
 COPY backend/requirements.txt /tmp/requirements.txt
@@ -31,13 +32,18 @@ RUN python scripts/ensure_model_artifacts.py \
 	&& find /opt/venv -type d -name "__pycache__" -prune -exec rm -rf {} \; \
 	&& rm -rf /root/.cache /tmp/*
 
-FROM python:3.11-alpine AS runner
+FROM python:3.11-slim AS runner
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
 	PATH="/opt/venv/bin:${PATH}"
 
 WORKDIR /app
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		libgomp1 \
+	&& rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /app /app

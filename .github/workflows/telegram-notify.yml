@@ -8,6 +8,7 @@ on:
 
 permissions:
   actions: read
+  contents: read
 
 defaults:
   run:
@@ -22,11 +23,6 @@ jobs:
       SKIP_NOTIFICATION: "false"
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
       - name: Validate secrets
         run: |
           if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
@@ -70,16 +66,7 @@ jobs:
           actor = os.environ.get("ACTOR", "")
           commit_msg = os.environ.get("COMMIT_MSG", "No commit message available")
           chatbot_model = os.environ.get("CHATBOT_MODEL_NAME", "mistral")
-
-          plant_model_version = "unknown"
-          registry_path = os.path.join("backend", "model", "model_registry.json")
-          if os.path.exists(registry_path):
-              try:
-                  with open(registry_path, "r", encoding="utf-8") as handle:
-                      registry = json.load(handle)
-                  plant_model_version = registry.get("active_version") or "unknown"
-              except Exception:
-                  plant_model_version = "unknown"
+            plant_model_version = "managed-by-deploy"
 
           status_map = {
               "success": ("✅", "Successful"),
