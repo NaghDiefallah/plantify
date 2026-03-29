@@ -3,12 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 
 CURRENT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = CURRENT_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 MODEL_DIR = BACKEND_DIR / "model"
 DEFAULT_ONNX = MODEL_DIR / "plantify_model.onnx"
 DEFAULT_LABELS = MODEL_DIR / "classes.json"
