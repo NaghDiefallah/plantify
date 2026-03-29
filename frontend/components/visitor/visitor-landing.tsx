@@ -183,28 +183,10 @@ export function VisitorLanding() {
         </div>
       </section>
 
-      <footer className="mt-20 border-t border-[var(--card-border)] py-10">
-        <div className="grid gap-6 text-sm text-[var(--text-tertiary)] md:grid-cols-4">
-          <div>
-            <p className="font-semibold text-[var(--text-primary)]">Plantify</p>
-            <p className="mt-2">{t("footerDescription")}</p>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-[var(--text-primary)]">{t("footerHeadingPlatform")}</p>
-            <Link href={`/${locale}`} className="block hover:text-[var(--text-primary)]">{t("footerHome")}</Link>
-            <Link href={`/${locale}/dashboard`} className="block hover:text-[var(--text-primary)]">{t("footerDashboard")}</Link>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-[var(--text-primary)]">{t("footerHeadingLegal")}</p>
-            <Link href={`/${locale}/privacy`} className="block hover:text-[var(--text-primary)]">{t("footerPrivacy")}</Link>
-            <Link href={`/${locale}/terms`} className="block hover:text-[var(--text-primary)]">{t("footerTerms")}</Link>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-[var(--text-primary)]">{t("footerHeadingSocial")}</p>
-            <Link href="#" className="block hover:text-[var(--text-primary)]">{t("footerX")}</Link>
-            <Link href="#" className="block hover:text-[var(--text-primary)]">{t("footerLinkedIn")}</Link>
-            <Link href="#" className="block hover:text-[var(--text-primary)]">{t("footerContact")}</Link>
-          </div>
+      <footer className="mt-20 border-t border-[var(--card-border)] py-8">
+        <div className="flex flex-col items-center gap-1 text-sm text-[var(--text-tertiary)]">
+          <p>© 2026 Limarise. All rights reserved.</p>
+          <p className="text-xs tracking-widest uppercase text-[var(--text-quaternary)]">Rising Beyond Limits</p>
         </div>
       </footer>
 

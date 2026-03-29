@@ -121,7 +121,7 @@ export function ChatInterface() {
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
+            const data = line.slice(6).trimEnd();
             if (data && data !== "[DONE]") {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -153,7 +153,7 @@ export function ChatInterface() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }

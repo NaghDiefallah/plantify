@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, X, Send, Loader } from "lucide-react";
+import { Bot, X, Send, Loader } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export interface ChatMessage {
@@ -129,7 +129,7 @@ export function AgriBotWidget({
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
+            const data = line.slice(6).trimEnd();
             if (data && data !== "[DONE]") {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -160,7 +160,7 @@ export function AgriBotWidget({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleSendMessage();
     }
@@ -208,7 +208,7 @@ export function AgriBotWidget({
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageCircle className="h-8 w-8 text-accent mb-2" />
+                    <Bot className="h-8 w-8 text-accent mb-2" />
                     <p className="text-sm text-text-secondary">
                       {t("ask_question")}
                     </p>
@@ -220,10 +220,15 @@ export function AgriBotWidget({
                         key={msg.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`flex ${
+                        className={`flex items-end gap-2 ${
                           msg.sender === "user" ? "justify-end" : "justify-start"
                         }`}
                       >
+                        {msg.sender === "assistant" && (
+                          <div className="flex-shrink-0 h-6 w-6 rounded-full bg-accent/20 flex items-center justify-center">
+                            <Bot className="h-3.5 w-3.5 text-accent" />
+                          </div>
+                        )}
                         <div
                           className={`max-w-xs px-4 py-2 rounded-lg text-sm ${
                             msg.sender === "user"
@@ -317,7 +322,7 @@ export function AgriBotWidget({
             animate={isOpen ? { rotate: 90 } : { rotate: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <MessageCircle className="h-6 w-6" />
+            <Bot className="h-6 w-6" />
           </motion.div>
         </Button>
       </motion.div>
