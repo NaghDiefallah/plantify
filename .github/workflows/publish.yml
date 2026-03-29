@@ -179,44 +179,78 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: Pull built images for scanning
+      - name: Prepare runner disk and Trivy cache
         run: |
-          docker pull "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
-          docker pull "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+          mkdir -p "${RUNNER_TEMP}/trivy-cache"
+          docker builder prune -af || true
+          docker image prune -af || true
+          docker system df || true
 
-      - name: Scan backend image vulnerabilities (Trivy)
+      - name: Pull and scan backend image vulnerabilities (Trivy)
         run: |
+          BACKEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+          docker pull "${BACKEND_IMAGE}"
+
           docker run --rm \
+            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.56.2 \
             image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
-            "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+            "${BACKEND_IMAGE}"
 
-      - name: Scan frontend image vulnerabilities (Trivy)
+          docker image rm -f "${BACKEND_IMAGE}" || true
+          docker image prune -af || true
+
+      - name: Pull and scan frontend image vulnerabilities (Trivy)
         run: |
+          FRONTEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+          docker pull "${FRONTEND_IMAGE}"
+
           docker run --rm \
+            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.56.2 \
             image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
-            "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+            "${FRONTEND_IMAGE}"
+
+          docker image rm -f "${FRONTEND_IMAGE}" || true
+          docker image prune -af || true
 
       - name: Enforce backend image vulnerability policy (Trivy)
         if: env.SECURITY_SCAN_ENFORCE == 'true'
         run: |
+          BACKEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+          docker pull "${BACKEND_IMAGE}"
+
           docker run --rm \
+            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.56.2 \
             image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            "${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
+            "${BACKEND_IMAGE}"
+
+          docker image rm -f "${BACKEND_IMAGE}" || true
+          docker image prune -af || true
 
       - name: Enforce frontend image vulnerability policy (Trivy)
         if: env.SECURITY_SCAN_ENFORCE == 'true'
         run: |
+          FRONTEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+          docker pull "${FRONTEND_IMAGE}"
+
           docker run --rm \
+            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
+            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.56.2 \
             image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            "${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
+            "${FRONTEND_IMAGE}"
+
+          docker image rm -f "${FRONTEND_IMAGE}" || true
+          docker image prune -af || true
 
   deploy:
     name: Deploy to VPS
