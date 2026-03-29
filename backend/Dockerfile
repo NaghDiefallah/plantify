@@ -23,8 +23,10 @@ RUN apt-get update \
 	&& python -m venv /opt/venv
 
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip install --upgrade pip \
-	&& pip install --no-cache-dir -r /tmp/requirements.txt
+RUN awk '!/^(torch|torchvision|pytest|pytest-asyncio)==/' /tmp/requirements.txt > /tmp/requirements-runtime.txt \
+	&& pip install --upgrade pip \
+	&& pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
+	&& pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
 
 COPY backend /app
 RUN python scripts/ensure_model_artifacts.py \
