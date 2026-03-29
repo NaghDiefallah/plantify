@@ -1,12 +1,13 @@
 :80 {
-  encode zstd gzip
-
   @api path /api* /health
   handle @api {
-    reverse_proxy backend:8000
+    reverse_proxy backend:8000 {
+      flush_interval -1
+    }
   }
 
   handle {
+    encode zstd gzip
     reverse_proxy frontend:3000
   }
 }
