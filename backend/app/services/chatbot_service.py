@@ -32,9 +32,53 @@ class ChatbotService:
         self.auto_pull_model = auto_pull_model
         self.pull_timeout_seconds = pull_timeout_seconds
         self.glossary = self._load_glossary(glossary_path)
-        self.http_client = httpx.AsyncClient(timeout=120.0)
+        self.http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=45.0, write=15.0, pool=5.0)
+        )
         self._model_ready = False
         self._ensure_lock = asyncio.Lock()
+
+    @staticmethod
+    def _is_fast_path_message(message: str) -> bool:
+        normalized = (message or "").strip().lower()
+        if not normalized:
+            return False
+        return normalized in {
+            "hello",
+            "hi",
+            "hey",
+            "test",
+            "testing",
+            "مرحبا",
+            "اهلا",
+            "أهلا",
+            "اختبار",
+            "تجربة",
+        }
+
+    @staticmethod
+    def _fast_path_response(language: Literal["en", "ar"]) -> str:
+        if language == "ar":
+            return (
+                "مرحباً! أنا خبير Plantify الزراعي. "
+                "أرسل اسم المرض أو صورة الفحص وسأعطيك خطوات عملية سريعة للعلاج والوقاية."
+            )
+        return (
+            "Hello! I am your Plantify Agri Expert. "
+            "Share a disease name or scan result and I will provide concise treatment and prevention steps."
+        )
+
+    @staticmethod
+    def _fallback_response(language: Literal["en", "ar"]) -> str:
+        if language == "ar":
+            return (
+                "الخدمة بطيئة حالياً أو غير متاحة مؤقتاً. "
+                "جرّب بعد قليل، أو اذكر اسم المرض مباشرة لأعطيك إرشادات عامة."
+            )
+        return (
+            "The AI service is currently slow or temporarily unavailable. "
+            "Please retry in a moment, or share the disease name for general guidance."
+        )
 
     async def ensure_model_ready(self) -> None:
         """Ensure Ollama is reachable and the configured model is available."""
@@ -109,7 +153,7 @@ class ChatbotService:
     def _build_system_prompt(self, language: Literal["en", "ar"]) -> str:
         """Build system prompt for the specified language."""
         if language == "ar":
-            return """أنت خبير زراعي متخصص يساعd المزارعين والعاملين في الزراعة على فهم وعلاج أمراض النبات.
+            return """أنت خبير زراعي متخصص يساعد المزارعين والعاملين في الزراعة على فهم وعلاج أمراض النبات.
 
 مهامك:
 - توفير معلومات دقيقة وموثوقة عن أمراض النبات والآفات الزراعية
@@ -169,10 +213,18 @@ Always respond in English."""
         Yields:
             Streamed response chunks
         """
-        await self.ensure_model_ready()
-
         # Detect user language
         language = detect_language(message)
+
+        if self._is_fast_path_message(message):
+            yield self._fast_path_response(language)
+            return
+
+        try:
+            await self.ensure_model_ready()
+        except Exception:
+            yield self._fallback_response(language)
+            return
         
         # Build context-aware query
         enhanced_query = message
@@ -195,31 +247,35 @@ Always respond in English."""
         
         # Stream the response from Ollama
         try:
-            response = await self.http_client.post(
+            async with self.http_client.stream(
+                "POST",
                 f"{self.base_url}/api/chat",
                 json={
                     "model": self.model_name,
                     "messages": messages,
                     "stream": True,
-                    "temperature": 0.7
+                    "options": {
+                        "temperature": 0.4,
+                        "num_predict": 180,
+                    },
                 },
-                timeout=120.0
-            )
-            
-            async for line in response.aiter_lines():
-                if line and line.startswith('{"'):
-                    try:
-                        data = json.loads(line)
-                        if "message" in data and "content" in data["message"]:
-                            chunk = data["message"]["content"]
-                            if chunk:
-                                yield chunk
-                    except json.JSONDecodeError:
-                        continue
-                        
-        except Exception as e:
-            error_msg = f"Error generating response: {str(e)}"
-            yield error_msg
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line and line.startswith('{"'):
+                        try:
+                            data = json.loads(line)
+                            if "message" in data and "content" in data["message"]:
+                                chunk = data["message"]["content"]
+                                if chunk:
+                                    yield chunk
+                        except json.JSONDecodeError:
+                            continue
+
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError):
+            yield self._fallback_response(language)
+        except Exception:
+            yield self._fallback_response(language)
     
     async def chat(
         self,

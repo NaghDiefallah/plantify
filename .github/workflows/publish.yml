@@ -198,6 +198,25 @@ jobs:
             exit 1
           fi
 
+          SECRET_KEY_VALUE=$(printf '%s\n' "$BACKEND_ENV_FILE" | sed -n 's/^SECRET_KEY=//p' | head -n 1)
+          ROLE_CODE_VALUE=$(printf '%s\n' "$BACKEND_ENV_FILE" | sed -n 's/^ROLE_ELEVATION_CODE=//p' | head -n 1)
+          APP_ENV_VALUE=$(printf '%s\n' "$BACKEND_ENV_FILE" | sed -n 's/^APP_ENV=//p' | head -n 1)
+
+          if [ "${APP_ENV_VALUE}" != "production" ]; then
+            echo "BACKEND_ENV_FILE must include APP_ENV=production." >&2
+            exit 1
+          fi
+
+          if [ -z "${SECRET_KEY_VALUE:-}" ] || [ ${#SECRET_KEY_VALUE} -lt 32 ] || [ "$SECRET_KEY_VALUE" = "REPLACE_WITH_LONG_RANDOM_SECRET" ]; then
+            echo "BACKEND_ENV_FILE SECRET_KEY must be set to a real value with at least 32 characters." >&2
+            exit 1
+          fi
+
+          if [ -z "${ROLE_CODE_VALUE:-}" ] || [ ${#ROLE_CODE_VALUE} -lt 20 ] || [ "$ROLE_CODE_VALUE" = "REPLACE_WITH_ROLE_CODE" ]; then
+            echo "BACKEND_ENV_FILE ROLE_ELEVATION_CODE must be set to a real value with at least 20 characters." >&2
+            exit 1
+          fi
+
       - name: Upload deployment files
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
@@ -281,6 +300,13 @@ jobs:
               done
             }
 
+            print_backend_diagnostics() {
+              echo "Backend container state:" >&2
+              docker inspect -f '{{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}} exit={{.State.ExitCode}} error={{.State.Error}}' plantify-backend 2>/dev/null || true
+              echo "Last 200 backend logs:" >&2
+              docker logs --tail 200 plantify-backend 2>&1 || true
+            }
+
             rollback_to_previous_release() {
               if [ -z "${PREV_TAG}" ] || [ "${PREV_TAG}" = "${IMAGE_TAG}" ]; then
                 echo "No previous image tag available for rollback." >&2
@@ -299,7 +325,10 @@ jobs:
             export IMAGE_TAG GHCR_IMAGE_PREFIX
 
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180
+            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180; then
+              print_backend_diagnostics
+              exit 1
+            fi
 
             if docker compose -f docker-compose.prod.yml ps --services | grep -q '^ollama$'; then
               for ATTEMPT in 1 2 3 4 5 6 7 8 9 10; do
@@ -319,6 +348,7 @@ jobs:
 
             if ! verify_smoke; then
               echo "Post-deploy smoke checks failed. Attempting rollback..." >&2
+              print_backend_diagnostics
               rollback_to_previous_release || true
               echo "Deployment failed and rollback was attempted." >&2
               exit 1

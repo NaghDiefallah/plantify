@@ -66,7 +66,7 @@ jobs:
           actor = os.environ.get("ACTOR", "")
           commit_msg = os.environ.get("COMMIT_MSG", "No commit message available")
           chatbot_model = os.environ.get("CHATBOT_MODEL_NAME", "mistral")
-            plant_model_version = "managed-by-deploy"
+          plant_model_version = "managed-by-deploy"
 
           status_map = {
               "success": ("✅", "Successful"),

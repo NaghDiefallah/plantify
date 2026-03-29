@@ -42,6 +42,20 @@ export function AgriBotWidget({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const formatChatError = (err: unknown): string => {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return "The assistant took too long to respond. Please try a shorter question.";
+    }
+    if (err instanceof Error) {
+      const lower = err.message.toLowerCase();
+      if (lower.includes("failed to fetch") || lower.includes("network")) {
+        return "Unable to reach chat service right now. Please try again in a few seconds.";
+      }
+      return err.message;
+    }
+    return "Unable to reach chat service right now. Please try again in a few seconds.";
+  };
+
   // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -70,17 +84,21 @@ export function AgriBotWidget({
     setIsLoading(true);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 65000);
       const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           message: userMessage.content,
           scan_context: scanContext || null,
         }),
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -97,6 +115,7 @@ export function AgriBotWidget({
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      let assistantMessageAdded = true;
 
       const decoder = new TextDecoder();
       let buffer = "";
@@ -128,10 +147,16 @@ export function AgriBotWidget({
 
       setIsLoading(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      const errorMessage = formatChatError(err);
       setError(errorMessage);
       setIsLoading(false);
-      setMessages((prev) => prev.slice(0, -1));
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.sender === "assistant" && last.content.length === 0) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
     }
   };
 
