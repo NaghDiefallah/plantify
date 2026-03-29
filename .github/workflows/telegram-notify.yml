@@ -18,6 +18,11 @@ jobs:
       SKIP_NOTIFICATION: "false"
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
       - name: Validate secrets
         run: |
           if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
@@ -38,6 +43,7 @@ jobs:
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           ACTOR: ${{ github.event.workflow_run.actor.login }}
           COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message || 'No commit message available' }}
+          CHATBOT_MODEL_NAME: ${{ secrets.CHATBOT_MODEL_NAME || 'mistral' }}
         run: |
           python - <<'PY'
           import html
@@ -59,6 +65,17 @@ jobs:
           run_url = os.environ.get("RUN_URL", "")
           actor = os.environ.get("ACTOR", "")
           commit_msg = os.environ.get("COMMIT_MSG", "No commit message available")
+            chatbot_model = os.environ.get("CHATBOT_MODEL_NAME", "mistral")
+
+            plant_model_version = "unknown"
+            registry_path = os.path.join("backend", "model", "model_registry.json")
+            if os.path.exists(registry_path):
+              try:
+                with open(registry_path, "r", encoding="utf-8") as handle:
+                  registry = json.load(handle)
+                plant_model_version = registry.get("active_version") or "unknown"
+              except Exception:
+                plant_model_version = "unknown"
 
           status_map = {
               "success": ("✅", "Successful"),
@@ -84,7 +101,11 @@ jobs:
               f"└ <a href=\"https://github.com/{html.escape(repo)}/commit/{html.escape(commit_sha)}\">{html.escape(short_sha)}</a> - <i>{safe_msg}</i>\n\n"
               "👤 <b>Author</b>\n"
               f"└ <a href=\"https://github.com/{html.escape(actor)}\">@{html.escape(actor)}</a>\n"
-                "\n"
+              "\n"
+              "🧠 <b>Plant Model</b>\n"
+              f"└ <code>{html.escape(plant_model_version)}</code>\n\n"
+              "🤖 <b>Chatbot Model</b>\n"
+              f"└ <code>{html.escape(chatbot_model)}</code>\n\n"
               "🕐 <b>Timestamp</b>\n"
               f"└ {html.escape(timestamp)}\n\n"
               "━━━━━━━━━━━━━━━━━━━━━━━━\n"

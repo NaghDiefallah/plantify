@@ -7,6 +7,8 @@ services:
       - backend/.env.example
     volumes:
       - plantify_data:/data
+    depends_on:
+      - ollama
     restart: unless-stopped
 
   frontend:
@@ -32,7 +34,16 @@ services:
       - backend
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:0.11.12
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
 volumes:
   plantify_data:
   caddy_data:
   caddy_config:
+  ollama_data:

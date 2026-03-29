@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     sqlite_path: str = str(BACKEND_DIR / "plantify.db")
     model_path: str = str(BACKEND_DIR / "model" / "plantify_model.onnx")
     labels_path: str = str(BACKEND_DIR / "model" / "classes.json")
-    checkpoint_path: str = str(REPO_ROOT / "plantify_model.pth")
+    checkpoint_path: str = str(BACKEND_DIR / "model" / "plantify_model.pth")
+    chatbot_model_name: str = "mistral"
+    chatbot_base_url: str = "http://ollama:11434"
+    chatbot_auto_pull_model: bool = True
+    chatbot_pull_timeout_seconds: int = 900
     upload_max_bytes: int = 5 * 1024 * 1024
     upload_allowed_mime_types: str = "image/jpeg,image/png,image/webp"
     rate_limit_signup_per_minute: int = 10

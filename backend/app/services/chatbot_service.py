@@ -1,5 +1,6 @@
 """LLM-powered bilingual chatbot service for agricultural expert advice."""
 
+import asyncio
 import json
 from pathlib import Path
 from typing import AsyncGenerator, Literal
@@ -11,7 +12,14 @@ from app.services.language_utils import detect_language
 class ChatbotService:
     """Bilingual chatbot providing expert agricultural advice."""
     
-    def __init__(self, model_name: str = "mistral", glossary_path: str | None = None, base_url: str = "http://localhost:11434"):
+    def __init__(
+        self,
+        model_name: str = "mistral",
+        glossary_path: str | None = None,
+        base_url: str = "http://localhost:11434",
+        auto_pull_model: bool = True,
+        pull_timeout_seconds: int = 900,
+    ):
         """Initialize the chatbot service.
         
         Args:
@@ -21,8 +29,73 @@ class ChatbotService:
         """
         self.model_name = model_name
         self.base_url = base_url
+        self.auto_pull_model = auto_pull_model
+        self.pull_timeout_seconds = pull_timeout_seconds
         self.glossary = self._load_glossary(glossary_path)
         self.http_client = httpx.AsyncClient(timeout=120.0)
+        self._model_ready = False
+        self._ensure_lock = asyncio.Lock()
+
+    async def ensure_model_ready(self) -> None:
+        """Ensure Ollama is reachable and the configured model is available."""
+        if self._model_ready:
+            return
+
+        async with self._ensure_lock:
+            if self._model_ready:
+                return
+
+            tags = await self._list_model_tags()
+            if not self._has_model_tag(tags):
+                if not self.auto_pull_model:
+                    raise RuntimeError(
+                        f"Chatbot model '{self.model_name}' is not available and auto-pull is disabled"
+                    )
+                await self._pull_model()
+
+            self._model_ready = True
+
+    async def _list_model_tags(self) -> list[str]:
+        response = await self.http_client.get(f"{self.base_url}/api/tags", timeout=20.0)
+        response.raise_for_status()
+        payload = response.json()
+        models = payload.get("models", [])
+        tags: list[str] = []
+        for item in models:
+            name = item.get("name") if isinstance(item, dict) else None
+            if isinstance(name, str) and name.strip():
+                tags.append(name.strip())
+        return tags
+
+    def _has_model_tag(self, tags: list[str]) -> bool:
+        target = self.model_name.strip()
+        if not target:
+            return False
+        return any(tag == target or tag.startswith(f"{target}:") for tag in tags)
+
+    async def _pull_model(self) -> None:
+        async with self.http_client.stream(
+            "POST",
+            f"{self.base_url}/api/pull",
+            json={"name": self.model_name, "stream": True},
+            timeout=self.pull_timeout_seconds,
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                error_message = data.get("error")
+                if isinstance(error_message, str) and error_message.strip():
+                    raise RuntimeError(f"Failed to pull chatbot model '{self.model_name}': {error_message}")
+
+        # Confirm availability after pull.
+        tags = await self._list_model_tags()
+        if not self._has_model_tag(tags):
+            raise RuntimeError(f"Chatbot model '{self.model_name}' was pulled but is still unavailable")
     
     def _load_glossary(self, glossary_path: str | None = None) -> dict:
         """Load the botanical glossary."""
@@ -96,6 +169,8 @@ Always respond in English."""
         Yields:
             Streamed response chunks
         """
+        await self.ensure_model_ready()
+
         # Detect user language
         language = detect_language(message)
         

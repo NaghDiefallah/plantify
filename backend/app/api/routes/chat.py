@@ -2,13 +2,12 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.core.config import get_settings
 from app.services.chatbot_service import ChatbotService
-from app.api.deps import get_current_user
-from app.models import User
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -28,6 +27,7 @@ class GlossaryLookup(BaseModel):
 
 # Initialize chatbot service (in production, use dependency injection or app state)
 _chatbot_service = None
+settings = get_settings()
 
 
 def get_chatbot_service() -> ChatbotService:
@@ -35,8 +35,10 @@ def get_chatbot_service() -> ChatbotService:
     global _chatbot_service
     if _chatbot_service is None:
         _chatbot_service = ChatbotService(
-            model_name="mistral",
-            base_url="http://localhost:11434"
+            model_name=settings.chatbot_model_name,
+            base_url=settings.chatbot_base_url,
+            auto_pull_model=settings.chatbot_auto_pull_model,
+            pull_timeout_seconds=settings.chatbot_pull_timeout_seconds,
         )
     return _chatbot_service
 
@@ -44,7 +46,6 @@ def get_chatbot_service() -> ChatbotService:
 @router.post("/stream")
 async def chat_stream(
     request: ChatMessage,
-    current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Stream a chatbot response.
     
@@ -78,7 +79,6 @@ async def chat_stream(
 @router.post("")
 async def chat(
     request: ChatMessage,
-    current_user: User = Depends(get_current_user),
 ) -> dict:
     """Get a complete chatbot response (non-streaming).
     
@@ -104,7 +104,6 @@ async def chat(
 async def glossary_lookup(
     term: str = Query(..., min_length=1),
     language: str = Query("en", regex="^(en|ar)$"),
-    current_user: User = Depends(get_current_user),
 ) -> dict:
     """Look up a botanical term in the glossary.
     

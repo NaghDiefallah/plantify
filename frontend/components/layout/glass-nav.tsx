@@ -6,7 +6,7 @@ import {useEffect, useState} from "react";
 
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
-import {getStoredAccessToken} from "@/lib/api";
+import {AUTH_STATE_CHANGED_EVENT, getStoredAccessToken} from "@/lib/api";
 
 export function GlassNav() {
   const t = useTranslations("nav");
@@ -20,7 +20,11 @@ export function GlassNav() {
 
     syncAuth();
     window.addEventListener("storage", syncAuth);
-    return () => window.removeEventListener("storage", syncAuth);
+    window.addEventListener(AUTH_STATE_CHANGED_EVENT, syncAuth);
+    return () => {
+      window.removeEventListener("storage", syncAuth);
+      window.removeEventListener(AUTH_STATE_CHANGED_EVENT, syncAuth);
+    };
   }, []);
 
   const links = [

@@ -13,6 +13,13 @@ const API_BASE = resolveApiBase();
 const ACCESS_TOKEN_KEY = "plantify_access_token";
 const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
+export const AUTH_STATE_CHANGED_EVENT = "plantify-auth-state-changed";
+
+function emitAuthStateChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_STATE_CHANGED_EVENT));
+  }
+}
 
 function isLocalHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1";
@@ -51,12 +58,14 @@ export function getStoredRefreshToken(): string | null {
 export function storeAuthTokens(tokens: AuthTokens): void {
   window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
   window.localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+  emitAuthStateChanged();
 }
 
 export function clearStoredTokens(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   clearStoredRole();
+  emitAuthStateChanged();
 }
 
 export function getStoredRole(): UserRole | null {

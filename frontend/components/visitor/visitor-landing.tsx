@@ -5,6 +5,7 @@ import {motion} from "framer-motion";
 import {ArrowRight} from "lucide-react";
 import {useLocale, useTranslations} from "next-intl";
 import {CircleUserRound} from "lucide-react";
+import {AgriBotWidget} from "@/components/agri-bot-widget";
 
 const TESTIMONIALS = [
   {
@@ -206,6 +207,8 @@ export function VisitorLanding() {
           </div>
         </div>
       </footer>
+
+      <AgriBotWidget position="bottom-right" />
     </main>
   );
 }
