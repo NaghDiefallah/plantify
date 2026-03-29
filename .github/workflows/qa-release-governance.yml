@@ -105,37 +105,37 @@ jobs:
                       h.update(chunk)
               return h.hexdigest()
 
-            artifact_candidates = {
+          artifact_candidates = {
               'checkpoint': ('plantify_model.pth', 'backend/plantify_model.pth'),
               'onnx': ('model/plantify_model.onnx', 'backend/model/plantify_model.onnx'),
               'labels': ('model/classes.json', 'backend/model/classes.json'),
               'registry': ('model/model_registry.json', 'backend/model/model_registry.json'),
-            }
+          }
 
           artifacts = {}
-            missing_artifacts = []
+          missing_artifacts = []
 
-            for logical_name, candidates in artifact_candidates.items():
+          for logical_name, candidates in artifact_candidates.items():
               resolved_path = None
               for candidate in candidates:
-                path = Path(candidate)
-                if path.exists():
-                  resolved_path = path
-                  break
+                  path = Path(candidate)
+                  if path.exists():
+                      resolved_path = path
+                      break
 
               if resolved_path is None:
-                missing_artifacts.append(
-                  {
-                    'name': logical_name,
-                    'candidates': list(candidates),
-                  }
-                )
-                continue
+                  missing_artifacts.append(
+                      {
+                          'name': logical_name,
+                          'candidates': list(candidates),
+                      }
+                  )
+                  continue
 
               artifacts[str(resolved_path).replace('\\', '/')] = {
-                'logical_name': logical_name,
-                'sha256': sha256(resolved_path),
-                'size_bytes': resolved_path.stat().st_size,
+                  'logical_name': logical_name,
+                  'sha256': sha256(resolved_path),
+                  'size_bytes': resolved_path.stat().st_size,
               }
 
           manifest = {
@@ -146,7 +146,7 @@ jobs:
               'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT', ''),
               'workflow': os.environ.get('GITHUB_WORKFLOW', ''),
               'artifacts': artifacts,
-                'missing_artifacts': missing_artifacts,
+              'missing_artifacts': missing_artifacts,
           }
 
           out = Path('/tmp/release-traceability.json')
