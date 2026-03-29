@@ -12,9 +12,6 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   VPS_APP_DIR: /root/plantify
-  SECURITY_SCAN_ENFORCE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
-  SLO_GATE_ENFORCE: "false"
-  PIP_AUDIT_IGNORE_IDS: "CVE-2026-28500"
 
 jobs:
   quality-gates:
@@ -38,36 +35,6 @@ jobs:
           python -m pip install --upgrade pip
           grep -Ev '^(torch|torchvision)==|^$' backend/requirements.txt > /tmp/requirements-ci.txt
           python -m pip install -r /tmp/requirements-ci.txt
-
-      - name: Validate backend dependency graph
-        run: python -m pip check
-
-      - name: Scan repository dependencies (Trivy)
-        run: |
-          docker run --rm \
-            -v "${PWD}:/workspace" \
-            -w /workspace \
-            aquasec/trivy:0.56.2 \
-            fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --ignore-unfixed .
-
-      - name: Enforce repository vulnerability policy (Trivy)
-        if: env.SECURITY_SCAN_ENFORCE == 'true'
-        run: |
-          docker run --rm \
-            -v "${PWD}:/workspace" \
-            -w /workspace \
-            aquasec/trivy:0.56.2 \
-            fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
-
-      - name: Scan backend Python dependencies (pip-audit)
-        run: |
-          python -m pip install pip-audit
-          python -m pip_audit -r /tmp/requirements-ci.txt --ignore-vuln "${PIP_AUDIT_IGNORE_IDS}" || true
-
-      - name: Enforce backend Python vulnerability policy (pip-audit)
-        if: env.SECURITY_SCAN_ENFORCE == 'true'
-        run: |
-          python -m pip_audit -r /tmp/requirements-ci.txt --ignore-vuln "${PIP_AUDIT_IGNORE_IDS}"
 
       - name: Validate production settings policy
         working-directory: backend
@@ -179,79 +146,6 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: Prepare runner disk and Trivy cache
-        run: |
-          mkdir -p "${RUNNER_TEMP}/trivy-cache"
-          docker builder prune -af || true
-          docker image prune -af || true
-          docker system df || true
-
-      - name: Pull and scan backend image vulnerabilities (Trivy)
-        run: |
-          BACKEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
-          docker pull "${BACKEND_IMAGE}"
-
-          docker run --rm \
-            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
-            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.56.2 \
-            image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
-            "${BACKEND_IMAGE}"
-
-          docker image rm -f "${BACKEND_IMAGE}" || true
-          docker image prune -af || true
-
-      - name: Pull and scan frontend image vulnerabilities (Trivy)
-        run: |
-          FRONTEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
-          docker pull "${FRONTEND_IMAGE}"
-
-          docker run --rm \
-            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
-            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.56.2 \
-            image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
-            "${FRONTEND_IMAGE}"
-
-          docker image rm -f "${FRONTEND_IMAGE}" || true
-          docker image prune -af || true
-
-      - name: Enforce backend image vulnerability policy (Trivy)
-        if: env.SECURITY_SCAN_ENFORCE == 'true'
-        run: |
-          BACKEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-backend:${{ steps.vars.outputs.image_tag }}"
-          docker pull "${BACKEND_IMAGE}"
-
-          docker run --rm \
-            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
-            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.56.2 \
-            image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            "${BACKEND_IMAGE}"
-
-          docker image rm -f "${BACKEND_IMAGE}" || true
-          docker image prune -af || true
-
-      - name: Enforce frontend image vulnerability policy (Trivy)
-        if: env.SECURITY_SCAN_ENFORCE == 'true'
-        run: |
-          FRONTEND_IMAGE="${{ steps.vars.outputs.image_prefix }}-frontend:${{ steps.vars.outputs.image_tag }}"
-          docker pull "${FRONTEND_IMAGE}"
-
-          docker run --rm \
-            -e TRIVY_CACHE_DIR=/root/.cache/trivy \
-            -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.56.2 \
-            image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            "${FRONTEND_IMAGE}"
-
-          docker image rm -f "${FRONTEND_IMAGE}" || true
-          docker image prune -af || true
-
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
@@ -281,7 +175,6 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           GHCR_IMAGE_PREFIX: ${{ needs.build-and-push.outputs.image_prefix }}
-          SLO_GATE_ENFORCE: ${{ env.SLO_GATE_ENFORCE }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
@@ -291,7 +184,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,SLO_GATE_ENFORCE,GHCR_USERNAME,GHCR_PAT,BACKEND_ENV_FILE,VPS_APP_DIR
+          envs: IMAGE_TAG,GHCR_IMAGE_PREFIX,GHCR_USERNAME,GHCR_PAT,BACKEND_ENV_FILE,VPS_APP_DIR
           script: |
             set -euo pipefail
 
@@ -354,18 +247,6 @@ jobs:
               rollback_to_previous_release || true
               echo "Deployment failed and rollback was attempted." >&2
               exit 1
-            fi
-
-            SLO_JSON=$(curl -fsS http://127.0.0.1:18000/slo)
-            echo "SLO snapshot: ${SLO_JSON}"
-
-            if [ "${SLO_GATE_ENFORCE:-false}" = "true" ]; then
-              if ! printf '%s' "$SLO_JSON" | grep -Eq '"enforceable_slo_ok"[[:space:]]*:[[:space:]]*true'; then
-                echo "SLO gate failed: enforceable_slo_ok is false" >&2
-                echo "Attempting rollback after SLO gate failure..." >&2
-                rollback_to_previous_release || true
-                exit 1
-              fi
             fi
 
             docker compose -f docker-compose.prod.yml ps

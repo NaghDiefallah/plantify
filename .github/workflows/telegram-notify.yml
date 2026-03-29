@@ -2,7 +2,7 @@ name: Telegram Notifications
 
 on:
   workflow_run:
-    workflows: ["Build, Publish, and Deploy", "QA and Release Governance", "Synthetic Production Monitor", "Daily SLO Trend Snapshot", "Daily Observability Dashboard", "Weekly Reliability Digest", "Monthly Reliability Scorecard", "Game-Day Drill", "Model Governance", "Model Rollback Control"]
+    workflows: ["Build, Publish, and Deploy"]
     types: [completed]
     branches: [main]
 
@@ -30,7 +30,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          PROD_SLO_URL: ${{ secrets.PROD_SLO_URL }}
           WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           REPO: ${{ github.repository }}
@@ -51,7 +50,6 @@ jobs:
 
           token = os.environ["TELEGRAM_BOT_TOKEN"]
           chat_id = os.environ["TELEGRAM_CHAT_ID"]
-          slo_url = os.environ.get("PROD_SLO_URL", "").strip()
 
           workflow_name = os.environ.get("WORKFLOW_NAME", "unknown")
           conclusion = os.environ.get("CONCLUSION", "unknown")
@@ -75,28 +73,6 @@ jobs:
           first_line = (commit_msg.splitlines() or ["No commit message available"])[0][:80]
           safe_msg = html.escape(first_line)
 
-          slo_block = ""
-          if slo_url:
-              try:
-                  req = urllib.request.Request(slo_url, method="GET")
-                  with urllib.request.urlopen(req, timeout=5) as resp:
-                      payload = json.loads(resp.read().decode("utf-8"))
-
-                  enforceable = payload.get("enforceable_slo_ok", "unknown")
-                  enough_data = payload.get("enough_data", "unknown")
-                  availability = payload.get("availability", "unknown")
-                  p95 = payload.get("latency_seconds_p95", "unknown")
-
-                  slo_block = (
-                      "\n📈 <b>SLO Snapshot</b>\n"
-                      f"└ enforceable=<code>{html.escape(str(enforceable))}</code>, "
-                      f"enough_data=<code>{html.escape(str(enough_data))}</code>, "
-                      f"availability=<code>{html.escape(str(availability))}</code>, "
-                      f"p95=<code>{html.escape(str(p95))}</code>\n"
-                  )
-              except Exception:
-                  pass
-
           message = (
               f"{emoji} <b>Plantify CI/CD</b> | {html.escape(status_label)}\n"
               "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -108,7 +84,7 @@ jobs:
               f"└ <a href=\"https://github.com/{html.escape(repo)}/commit/{html.escape(commit_sha)}\">{html.escape(short_sha)}</a> - <i>{safe_msg}</i>\n\n"
               "👤 <b>Author</b>\n"
               f"└ <a href=\"https://github.com/{html.escape(actor)}\">@{html.escape(actor)}</a>\n"
-              f"{slo_block}\n"
+                "\n"
               "🕐 <b>Timestamp</b>\n"
               f"└ {html.escape(timestamp)}\n\n"
               "━━━━━━━━━━━━━━━━━━━━━━━━\n"
