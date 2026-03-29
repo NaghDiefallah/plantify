@@ -115,7 +115,6 @@ export function AgriBotWidget({
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-      let assistantMessageAdded = true;
 
       const decoder = new TextDecoder();
       let buffer = "";
