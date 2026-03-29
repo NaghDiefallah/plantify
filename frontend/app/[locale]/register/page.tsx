@@ -2,7 +2,7 @@
 
 import {ArrowRight, Check, Loader2} from "lucide-react";
 import Link from "next/link";
-import {useLocale, useTranslations} from "next-intl";
+import {useTranslations} from "next-intl";
 import {useRouter} from "next/navigation";
 import {FormEvent, useState} from "react";
 import {motion} from "framer-motion";
@@ -14,7 +14,6 @@ import {FloatingField} from "@/components/auth/floating-field";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const locale = useLocale();
   const t = useTranslations("auth");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -44,7 +43,7 @@ export default function RegisterPage() {
         full_name: username
       });
       setSuccess(true);
-      setTimeout(() => router.push(`/${locale}/login`), 450);
+      setTimeout(() => router.push("/login"), 450);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("register.error"));
     } finally {
@@ -124,7 +123,7 @@ export default function RegisterPage() {
             </form>
 
             <p className="mt-5 text-sm text-[var(--text-secondary)]">
-              {t("register.switchPrompt")} <Link href={`/${locale}/login`} className="font-semibold text-[#22c55e] hover:underline">{t("register.switchCta")}</Link>
+              {t("register.switchPrompt")} <Link href="/login" className="font-semibold text-[#22c55e] hover:underline">{t("register.switchCta")}</Link>
             </p>
           </Card>
         </motion.div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {useLocale, useTranslations} from "next-intl";
+import {useTranslations} from "next-intl";
 import {useEffect, useState} from "react";
 
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
@@ -10,7 +10,6 @@ import {AUTH_STATE_CHANGED_EVENT, getStoredAccessToken} from "@/lib/api";
 
 export function GlassNav() {
   const t = useTranslations("nav");
-  const locale = useLocale();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -28,17 +27,17 @@ export function GlassNav() {
   }, []);
 
   const links = [
-    {label: t("home"), href: `/${locale}`},
-    {label: t("mission"), href: `/${locale}#mission`},
-    {label: t("testimonials"), href: `/${locale}#testimonials`},
-    {label: t("team"), href: `/${locale}#team`}
+    {label: t("home"), href: "/"},
+    {label: t("mission"), href: "/#mission"},
+    {label: t("testimonials"), href: "/#testimonials"},
+    {label: t("team"), href: "/#team"}
   ];
 
   return (
     <header className="sticky top-4 z-50 px-4 md:px-6">
       <nav className="glass-nav mx-auto flex w-full max-w-7xl items-center justify-between rounded-2xl px-4 py-3 md:px-6">
         <Link
-          href={`/${locale}`}
+          href="/"
           className="text-lg font-semibold tracking-tight text-[var(--text-primary)] md:text-xl"
         >
           Plantify
@@ -61,13 +60,13 @@ export function GlassNav() {
           <LocaleSwitcher />
           {isLoggedIn ? (
             <Link
-              href={`/${locale}/dashboard`}
+              href="/dashboard"
               className="rounded-lg bg-[#22c55e] px-4 py-2 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
             >
               {t("dashboard")}
             </Link>
           ) : (
-            <Link href={`/${locale}/login`} className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+            <Link href="/login" className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
               {t("login")}
             </Link>
           )}

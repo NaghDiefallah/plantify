@@ -14,7 +14,7 @@ class ChatbotService:
     
     def __init__(
         self,
-        model_name: str = "mistral",
+        model_name: str = "qwen2.5:1.5b",
         glossary_path: str | None = None,
         base_url: str = "http://localhost:11434",
         auto_pull_model: bool = True,
@@ -23,7 +23,7 @@ class ChatbotService:
         """Initialize the chatbot service.
         
         Args:
-            model_name: Name of the Ollama model to use (default: mistral)
+            model_name: Name of the Ollama model to use (default: qwen2.5:1.5b)
             glossary_path: Path to botanical glossary JSON file
             base_url: Ollama API base URL
         """

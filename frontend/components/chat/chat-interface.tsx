@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Globe } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "@/i18n/navigation";
 
 export interface ChatMessage {
@@ -15,16 +14,12 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-interface ScanContext {
-  disease_name?: string;
-  confidence?: number;
-}
-
 export function ChatInterface() {
   const t = useTranslations("chat");
   const locale = useLocale();
   const router = useRouter();
   const isRTL = locale === "ar";
+  const localeStorageKey = "plantify.locale";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -160,16 +155,17 @@ export function ChatInterface() {
   };
 
   return (
-    <div className={`flex flex-col h-screen bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
+    <div className={`flex flex-col h-dvh bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Header */}
-      <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
-          <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+      <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center justify-between max-w-4xl mx-auto w-full gap-3">
+          <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">{t("title")}</h1>
           <button
             onClick={() => {
               const order = ["en", "zh", "hi", "es", "ar"];
               const currentIndex = Math.max(0, order.indexOf(locale));
               const nextLocale = order[(currentIndex + 1) % order.length];
+              window.localStorage.setItem(localeStorageKey, nextLocale);
               router.push("/", { locale: nextLocale });
             }}
             title="Switch language"
@@ -181,7 +177,7 @@ export function ChatInterface() {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full text-center">
@@ -200,7 +196,7 @@ export function ChatInterface() {
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-xl px-4 py-3 rounded-lg ${
+                className={`max-w-[85%] sm:max-w-xl px-4 py-3 rounded-lg ${
                   msg.sender === "user"
                     ? "bg-primary text-white rounded-br-none"
                     : "bg-secondary text-foreground rounded-bl-none"
@@ -231,7 +227,7 @@ export function ChatInterface() {
 
           {error && (
             <div className="flex justify-center">
-              <div className="bg-destructive/20 text-destructive px-4 py-3 rounded-lg max-w-xl border border-destructive/30">
+              <div className="bg-destructive/20 text-destructive px-4 py-3 rounded-lg max-w-[85%] sm:max-w-xl border border-destructive/30">
                 <p className="text-sm">{t("error")}: {error}</p>
               </div>
             </div>
@@ -242,7 +238,7 @@ export function ChatInterface() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-6 py-4">
+      <div className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-4">
         <div className="max-w-4xl mx-auto w-full">
           <div className="flex gap-3">
             <textarea

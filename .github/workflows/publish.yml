@@ -238,7 +238,7 @@ jobs:
           ROOT_ENV_FILE: ${{ secrets.ROOT_ENV_FILE }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           FRONTEND_ENV_FILE: ${{ secrets.FRONTEND_ENV_FILE }}
-          CHATBOT_MODEL_NAME: ${{ secrets.CHATBOT_MODEL_NAME || 'mistral' }}
+          CHATBOT_MODEL_NAME: ${{ secrets.CHATBOT_MODEL_NAME || 'qwen2.5:1.5b' }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || env.VPS_APP_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}

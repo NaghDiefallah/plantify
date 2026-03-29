@@ -2,7 +2,7 @@
 
 import {ArrowRight, Check, Loader2} from "lucide-react";
 import Link from "next/link";
-import {useLocale, useTranslations} from "next-intl";
+import {useTranslations} from "next-intl";
 import {useRouter} from "next/navigation";
 import {FormEvent, useState} from "react";
 import {motion} from "framer-motion";
@@ -14,7 +14,6 @@ import {FloatingField} from "@/components/auth/floating-field";
 
 export default function LoginPage() {
   const router = useRouter();
-  const locale = useLocale();
   const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +37,7 @@ export default function LoginPage() {
         // Ignore profile preload failures; user can still access dashboard.
       }
       setSuccess(true);
-      setTimeout(() => router.push(`/${locale}/dashboard`), 450);
+      setTimeout(() => router.push("/dashboard"), 450);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("login.error"));
     } finally {
@@ -100,7 +99,7 @@ export default function LoginPage() {
             </form>
 
             <p className="mt-5 text-sm text-[var(--text-secondary)]">
-              {t("login.switchPrompt")} <Link href={`/${locale}/register`} className="font-semibold text-[#22c55e] hover:underline">{t("login.switchCta")}</Link>
+              {t("login.switchPrompt")} <Link href="/register" className="font-semibold text-[#22c55e] hover:underline">{t("login.switchCta")}</Link>
             </p>
           </Card>
         </motion.div>

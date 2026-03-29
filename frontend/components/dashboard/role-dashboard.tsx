@@ -2,7 +2,6 @@
 
 import {useEffect, useMemo, useState} from "react";
 import {Code2, ShieldCheck, Stethoscope, Tractor, Users} from "lucide-react";
-import {useLocale} from "next-intl";
 
 import type {UserProfile, UserRole} from "@/lib/types";
 import {
@@ -147,7 +146,6 @@ function RoleManager({
 }
 
 export function RoleDashboard() {
-  const locale = useLocale();
   const [role, setRole] = useState<UserRole | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -253,7 +251,7 @@ export function RoleDashboard() {
             className="mt-4"
             onClick={async () => {
               await logoutCurrentSession();
-              window.location.href = `/${locale}/login`;
+              window.location.href = "/login";
             }}
           >
             Go to login

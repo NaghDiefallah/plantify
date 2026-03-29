@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     model_path: str = str(BACKEND_DIR / "model" / "plantify_model.onnx")
     labels_path: str = str(BACKEND_DIR / "model" / "classes.json")
     checkpoint_path: str = str(BACKEND_DIR / "model" / "plantify_model.pth")
-    chatbot_model_name: str = "mistral"
+    chatbot_model_name: str = "qwen2.5:1.5b"
     chatbot_base_url: str = "http://ollama:11434"
     chatbot_auto_pull_model: bool = True
     chatbot_pull_timeout_seconds: int = 900

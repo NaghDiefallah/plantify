@@ -15,6 +15,8 @@ const LANGUAGE_OPTIONS = [
   {value: "ar", label: "العربية"}
 ] as const;
 
+const LOCALE_STORAGE_KEY = "plantify.locale";
+
 export function LanguageModalButton({compact = true}: {compact?: boolean}) {
   const locale = useLocale();
   const router = useRouter();
@@ -49,6 +51,7 @@ export function LanguageModalButton({compact = true}: {compact?: boolean}) {
   );
 
   const onSelect = (nextLocale: string) => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
     router.push(pathname, {locale: nextLocale});
     setOpen(false);
   };

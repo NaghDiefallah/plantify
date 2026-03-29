@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {motion} from "framer-motion";
 import {ArrowRight} from "lucide-react";
-import {useLocale, useTranslations} from "next-intl";
+import {useTranslations} from "next-intl";
 import {CircleUserRound} from "lucide-react";
 import {AgriBotWidget} from "@/components/agri-bot-widget";
 
@@ -33,7 +33,6 @@ const fadeUp = {
 };
 
 export function VisitorLanding() {
-  const locale = useLocale();
   const t = useTranslations("landing");
   const missionPoints = [
     {
@@ -98,7 +97,7 @@ export function VisitorLanding() {
           className="mt-9 flex flex-wrap items-center justify-center gap-3"
         >
             <Link
-              href={`/${locale}/dashboard`}
+              href="/dashboard"
               className="inline-flex h-11 items-center rounded-lg bg-[#22c55e] px-5 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
             >
               {t("ctaPrimary")}
@@ -138,23 +137,21 @@ export function VisitorLanding() {
           <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">{t("testimonialsTitle")}</h2>
         </div>
 
-        <div className="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 pb-2">
-          {TESTIMONIALS.map((item, index) => (
-            <motion.article
-              key={item.author}
-              initial={{opacity: 0, y: 20}}
-              whileInView={{opacity: 1, y: 0}}
-              viewport={{once: true, amount: 0.3}}
-              transition={{duration: 0.35, delay: index * 0.06}}
-              className="min-w-[18rem] snap-start rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 md:min-w-[22rem]"
-            >
-              <p className="text-sm leading-relaxed text-[var(--text-secondary)]">&quot;{item.quote}&quot;</p>
-              <div className="mt-5">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{item.author}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{item.role}</p>
-              </div>
-            </motion.article>
-          ))}
+        <div className="overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+          <div className="flex w-max gap-3 animate-testimonial-marquee">
+            {[...TESTIMONIALS, ...TESTIMONIALS].map((item, index) => (
+              <article
+                key={`${item.author}-${index}`}
+                className="w-[16.5rem] sm:w-[20rem] rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+              >
+                <p className="text-sm leading-relaxed text-[var(--text-secondary)]">&quot;{item.quote}&quot;</p>
+                <div className="mt-5">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{item.author}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{item.role}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 

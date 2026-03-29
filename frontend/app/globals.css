@@ -259,6 +259,31 @@ html, body {
   color: var(--text-primary);
 }
 
+@keyframes testimonial-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-testimonial-marquee {
+  animation: testimonial-marquee 42s linear infinite;
+  will-change: transform;
+}
+
+.animate-testimonial-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (max-width: 768px) {
+  .animate-testimonial-marquee {
+    animation-duration: 30s;
+  }
+}
+
 /* Material Symbols */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;

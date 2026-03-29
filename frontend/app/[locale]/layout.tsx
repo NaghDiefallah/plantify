@@ -5,6 +5,7 @@ import {notFound} from "next/navigation";
 
 import {GlassNav} from "@/components/layout/glass-nav";
 import {AppProviders} from "@/components/providers/app-providers";
+import {LocaleSync} from "@/components/ui/locale-sync";
 import {routing} from "@/i18n/routing";
 
 export default async function LocaleLayout({
@@ -28,6 +29,7 @@ export default async function LocaleLayout({
     <NextIntlClientProvider messages={messages}>
       <AppProviders>
         <div dir={rtl ? "rtl" : "ltr"} className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+          <LocaleSync />
           <GlassNav />
           {children}
         </div>
