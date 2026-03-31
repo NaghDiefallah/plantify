@@ -1,10 +1,10 @@
 ﻿"use client";
 
+import {useState, useRef, useCallback, useLayoutEffect} from "react";
 import Link from "next/link";
 import {motion} from "framer-motion";
-import {ArrowRight} from "lucide-react";
+import {ArrowRight, ChevronLeft, ChevronRight, CircleUserRound} from "lucide-react";
 import {useTranslations} from "next-intl";
-import {CircleUserRound} from "lucide-react";
 import {AgriBotWidget} from "@/components/agri-bot-widget";
 
 const TESTIMONIALS = [
@@ -26,6 +26,7 @@ const TESTIMONIALS = [
 ];
 
 const TEAM_NAMES = ["Nagh", "Aya", "Hady", "Abd Elghany", "Ahmed Bahaa", "Omar Radwan"];
+const CAROUSEL_GAP = 12;
 
 const fadeUp = {
   hidden: {opacity: 0, y: 20},
@@ -52,6 +53,39 @@ export function VisitorLanding() {
     name,
     role: t(`teamRole${index + 1}`)
   }));
+
+  // ── team carousel ────────────────────────────────────────────────
+  const [carousel, setCarousel] = useState<{idx: number; x: number; visible: number}>({
+    idx: 0,
+    x: 0,
+    visible: 3
+  });
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const carouselIdxRef = useRef(0);
+
+  const recalcCarousel = useCallback((idx: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const W = el.offsetWidth;
+    const vis = W < 540 ? 1 : W < 900 ? 2 : 3;
+    const cardW = (W - (vis - 1) * CAROUSEL_GAP) / vis;
+    const max = Math.max(0, TEAM_NAMES.length - vis);
+    const i = Math.min(Math.max(0, idx), max);
+    carouselIdxRef.current = i;
+    setCarousel({idx: i, x: -(i * (cardW + CAROUSEL_GAP)), visible: vis});
+  }, []);
+
+  useLayoutEffect(() => {
+    recalcCarousel(0);
+    const el = carouselRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => recalcCarousel(carouselIdxRef.current));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [recalcCarousel]);
+
+  const maxIdx = Math.max(0, TEAM_NAMES.length - carousel.visible);
+  // ─────────────────────────────────────────────────────────────────
 
   return (
     <main className="relative mx-auto max-w-7xl px-6 pb-14 pt-16 md:px-8 md:pt-20">
@@ -156,27 +190,52 @@ export function VisitorLanding() {
       </section>
 
       <section id="team" className="mt-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("teamEyebrow")}</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">{t("teamTitle")}</h2>
-
-        <div className="mt-7 -mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-2 touch-pan-x">
-          {team.map((member, index) => (
-            <motion.article
-              key={member.name}
-              variants={fadeUp}
-              initial="hidden"
-              whileInView="show"
-              viewport={{once: true, amount: 0.2}}
-              transition={{duration: 0.35, delay: index * 0.05}}
-              className="min-w-[14.5rem] sm:min-w-[17rem] snap-start rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+        <div className="flex items-start justify-between mb-7">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("teamEyebrow")}</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">{t("teamTitle")}</h2>
+          </div>
+          <div className="flex items-center gap-2 mt-1 shrink-0">
+            <button
+              onClick={() => recalcCarousel(carousel.idx - 1)}
+              disabled={carousel.idx === 0}
+              aria-label="Previous team members"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)]">
-                <CircleUserRound className="h-5 w-5 text-[var(--text-secondary)]" />
-              </div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{member.name}</p>
-              <p className="text-xs text-[var(--text-tertiary)]">{member.role}</p>
-            </motion.article>
-          ))}
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => recalcCarousel(carousel.idx + 1)}
+              disabled={carousel.idx >= maxIdx}
+              aria-label="Next team members"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div ref={carouselRef} className="overflow-hidden">
+          <motion.div
+            className="flex w-full"
+            style={{gap: `${CAROUSEL_GAP}px`}}
+            animate={{x: carousel.x}}
+            transition={{type: "spring", stiffness: 280, damping: 28, mass: 0.8}}
+          >
+            {team.map((member) => (
+              <article
+                key={member.name}
+                className="flex-shrink-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+                style={{width: `calc((100% - ${(carousel.visible - 1) * CAROUSEL_GAP}px) / ${carousel.visible})`}}
+              >
+                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)]">
+                  <CircleUserRound className="h-5 w-5 text-[var(--text-secondary)]" />
+                </div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{member.name}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{member.role}</p>
+              </article>
+            ))}
+          </motion.div>
         </div>
       </section>
 
