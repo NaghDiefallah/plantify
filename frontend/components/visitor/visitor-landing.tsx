@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import {useState, useRef, useCallback, useLayoutEffect} from "react";
+import {useState, useRef, useCallback, useLayoutEffect, type TouchEvent} from "react";
 import Link from "next/link";
 import {motion} from "framer-motion";
 import {ArrowRight, ChevronLeft, ChevronRight, CircleUserRound} from "lucide-react";
@@ -27,6 +27,7 @@ const TESTIMONIALS = [
 
 const TEAM_NAMES = ["Nagh", "Aya", "Hady", "Abd Elghany", "Ahmed Bahaa", "Omar Radwan"];
 const CAROUSEL_GAP = 12;
+const SWIPE_THRESHOLD = 44;
 
 const fadeUp = {
   hidden: {opacity: 0, y: 20},
@@ -62,6 +63,8 @@ export function VisitorLanding() {
   });
   const carouselRef = useRef<HTMLDivElement>(null);
   const carouselIdxRef = useRef(0);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchDeltaXRef = useRef(0);
 
   const recalcCarousel = useCallback((idx: number) => {
     const el = carouselRef.current;
@@ -85,6 +88,36 @@ export function VisitorLanding() {
   }, [recalcCarousel]);
 
   const maxIdx = Math.max(0, TEAM_NAMES.length - carousel.visible);
+
+  const onTeamTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    touchStartXRef.current = event.touches[0]?.clientX ?? null;
+    touchDeltaXRef.current = 0;
+  }, []);
+
+  const onTeamTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (touchStartXRef.current === null) return;
+    const currentX = event.touches[0]?.clientX;
+    if (currentX === undefined) return;
+    touchDeltaXRef.current = currentX - touchStartXRef.current;
+  }, []);
+
+  const onTeamTouchEnd = useCallback(() => {
+    const delta = touchDeltaXRef.current;
+    if (Math.abs(delta) < SWIPE_THRESHOLD) {
+      touchStartXRef.current = null;
+      touchDeltaXRef.current = 0;
+      return;
+    }
+
+    if (delta < 0) {
+      recalcCarousel(carouselIdxRef.current + 1);
+    } else {
+      recalcCarousel(carouselIdxRef.current - 1);
+    }
+
+    touchStartXRef.current = null;
+    touchDeltaXRef.current = 0;
+  }, [recalcCarousel]);
   // ─────────────────────────────────────────────────────────────────
 
   return (
@@ -215,7 +248,13 @@ export function VisitorLanding() {
           </div>
         </div>
 
-        <div ref={carouselRef} className="overflow-hidden">
+        <div
+          ref={carouselRef}
+          className="overflow-hidden touch-pan-y select-none"
+          onTouchStart={onTeamTouchStart}
+          onTouchMove={onTeamTouchMove}
+          onTouchEnd={onTeamTouchEnd}
+        >
           <motion.div
             className="flex w-full"
             style={{gap: `${CAROUSEL_GAP}px`}}
