@@ -134,6 +134,7 @@ jobs:
           set -euo pipefail
           BUILD_TOOLS_DIR=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort | tail -n 1)
           APK_UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_ALIGNED="android/app/build/outputs/apk/release/app-release-aligned.apk"
           AAB_UNSIGNED="android/app/build/outputs/bundle/release/app-release.aab"
           APK_SIGNED="android/app/build/outputs/apk/release/plantify-${GITHUB_REF_NAME}-android.apk"
           AAB_SIGNED="android/app/build/outputs/bundle/release/plantify-${GITHUB_REF_NAME}-android.aab"
@@ -153,13 +154,17 @@ jobs:
           sign_artifacts() {
             cp "$AAB_UNSIGNED" "$AAB_SIGNED"
 
+            "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$APK_UNSIGNED" "$APK_ALIGNED"
+
             "$BUILD_TOOLS_DIR/apksigner" sign \
               --ks "$ANDROID_KEYSTORE_PATH" \
               --ks-pass pass:"$ANDROID_KEYSTORE_PASSWORD" \
               --ks-key-alias "$ANDROID_KEY_ALIAS" \
               --key-pass pass:"$ANDROID_KEY_PASSWORD" \
               --out "$APK_SIGNED" \
-              "$APK_UNSIGNED"
+              "$APK_ALIGNED"
+
+            "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$APK_SIGNED"
 
             jarsigner \
               -sigalg SHA256withRSA \

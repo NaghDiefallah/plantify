@@ -22,6 +22,7 @@ const nextConfig = {
   reactStrictMode: true,
   skipTrailingSlashRedirect: isStaticExport,
   trailingSlash: isStaticExport,
+  assetPrefix: isStaticExport ? "./" : undefined,
   typedRoutes: false,
   output: isStaticExport ? "export" : undefined,
   images: isStaticExport
