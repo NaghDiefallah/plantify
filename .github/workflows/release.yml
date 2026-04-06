@@ -13,7 +13,7 @@ env:
   JAVA_VERSION: "21"
   FRONTEND_DIR: frontend
   NEXT_PUBLIC_APP_STAGE: production
-  NEXT_PUBLIC_PRODUCTION_API_URL: ${{ secrets.NEXT_PUBLIC_PRODUCTION_API_URL || 'https://api.plantify.limarise.com/api' }}
+  NEXT_PUBLIC_PRODUCTION_API_URL: ${{ secrets.NEXT_PUBLIC_PRODUCTION_API_URL || 'https://plantify.limarise.com/api' }}
 
 jobs:
   web-assets:
