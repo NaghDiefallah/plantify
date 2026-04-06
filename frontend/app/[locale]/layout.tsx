@@ -30,7 +30,7 @@ export default async function LocaleLayout({
   const rtl = locale === "ar";
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider messages={messages} timeZone="UTC">
       <div
         dir={rtl ? "rtl" : "ltr"}
         className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]"

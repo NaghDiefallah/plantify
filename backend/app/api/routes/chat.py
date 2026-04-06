@@ -103,7 +103,7 @@ async def chat(
 @router.get("/glossary")
 async def glossary_lookup(
     term: str = Query(..., min_length=1),
-    language: str = Query("en", regex="^(en|ar)$"),
+    language: str = Query("en", pattern="^(en|ar)$"),
 ) -> dict:
     """Look up a botanical term in the glossary.
     

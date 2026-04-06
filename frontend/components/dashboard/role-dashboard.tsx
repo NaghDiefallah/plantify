@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import {useEffect, useMemo, useState} from "react";
-import {Code2, ShieldCheck, Stethoscope, Tractor, Users} from "lucide-react";
+import {useEffect, useState} from "react";
+import {Code2, ShieldCheck, Users} from "lucide-react";
 
 import type {UserProfile, UserRole} from "@/lib/types";
 import {
@@ -219,21 +219,6 @@ export function RoleDashboard() {
       cancelled = true;
     };
   }, []);
-
-  const title = useMemo(() => {
-    if (role === "farmer") return "Farmer Dashboard";
-    if (role === "expert") return "Expert Dashboard";
-    if (role === "admin") return "Admin Dashboard";
-    if (role === "developer") return "Developer Dashboard";
-    return "Dashboard";
-  }, [role]);
-
-  const icon = useMemo(() => {
-    if (role === "farmer") return <Tractor className="h-4 w-4" />;
-    if (role === "expert") return <Stethoscope className="h-4 w-4" />;
-    if (role === "admin") return <ShieldCheck className="h-4 w-4" />;
-    return <Code2 className="h-4 w-4" />;
-  }, [role]);
 
   const updateRole = async (userId: string, nextRole: UserRole) => {
     if (!token) return;

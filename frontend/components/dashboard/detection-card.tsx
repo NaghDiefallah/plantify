@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { UploadCloud, XCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
+import Image from "next/image";
 
 import { detectPlant, getStoredAccessToken } from "@/lib/api";
 import type { DetectionResult } from "@/lib/types";
@@ -180,7 +181,16 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
         </Button>
       </div>
 
-      {preview ? <img src={preview} alt="Preview" className="mt-4 h-40 w-full rounded-2xl object-cover" /> : null}
+      {preview ? (
+        <Image
+          src={preview}
+          alt="Preview"
+          width={800}
+          height={320}
+          unoptimized
+          className="mt-4 h-40 w-full rounded-2xl object-cover"
+        />
+      ) : null}
 
       <AnimatePresence>
         {result ? (
@@ -198,16 +208,22 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
             {(result.before_image_b64 || result.after_image_b64) ? (
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {result.before_image_b64 ? (
-                  <img
+                  <Image
                     src={`data:image/jpeg;base64,${result.before_image_b64}`}
                     alt="Before"
+                    width={240}
+                    height={96}
+                    unoptimized
                     className="h-24 w-full rounded-lg object-cover"
                   />
                 ) : null}
                 {result.after_image_b64 ? (
-                  <img
+                  <Image
                     src={`data:image/jpeg;base64,${result.after_image_b64}`}
                     alt="After"
+                    width={240}
+                    height={96}
+                    unoptimized
                     className="h-24 w-full rounded-lg object-cover"
                   />
                 ) : null}

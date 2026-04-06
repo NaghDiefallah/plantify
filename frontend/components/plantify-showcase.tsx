@@ -1,23 +1,17 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { AnimatedContainer } from "@/components/animated-container";
 import { SonarPulse } from "@/components/sonar-pulse";
 import { ThemeLanguageSwitcher } from "@/components/theme-language-switcher";
 import { AgriBotWidget } from "@/components/agri-bot-widget";
 import { 
   Leaf, 
-  Bug, 
   Zap, 
   BarChart3, 
-  AlertCircle, 
-  CheckCircle,
-  Search
 } from "lucide-react";
 import { useState } from "react";
 
@@ -45,7 +39,6 @@ const itemVariants = {
 };
 
 export function PlantifyShowcase() {
-  const t = useTranslations();
   const locale = useLocale();
   const isRTL = locale === "ar";
   const [selectedDisease, setSelectedDisease] = useState("Apple Scab");

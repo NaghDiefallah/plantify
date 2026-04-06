@@ -4,6 +4,7 @@ import {motion} from "framer-motion";
 import {Flag, Microscope} from "lucide-react";
 import {Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 import {useMemo, useState} from "react";
+import Image from "next/image";
 
 import {BentoTile} from "@/components/ui/bento-tile";
 import {Button} from "@/components/ui/button";
@@ -84,7 +85,13 @@ export function ExpertDashboard() {
           <div className="grid h-[16rem] grid-cols-1 gap-3 md:grid-cols-3">
             {domainSamples.map((src, index) => (
               <div key={src} className="overflow-hidden rounded-xl border border-[#1f1f24] bg-black/20">
-                <img src={src} alt={`Domain ${index + 1}`} className="h-[12rem] w-full object-cover" />
+                <Image
+                  src={src}
+                  alt={`Domain ${index + 1}`}
+                  width={1200}
+                  height={768}
+                  className="h-[12rem] w-full object-cover"
+                />
                 <p className="px-3 py-2 text-xs uppercase tracking-[0.12em] text-zinc-400">
                   {index === 0 ? "color" : index === 1 ? "grayscale" : "segmented"}
                 </p>

@@ -12,6 +12,7 @@ import {
   UploadCloud
 } from "lucide-react";
 import {useMemo, useState} from "react";
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import {useDropzone} from "react-dropzone";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -84,7 +85,16 @@ function HistoryImage({row}: {row: ScanHistory}) {
   const imageSrc = row.before_image_b64 ? `data:image/jpeg;base64,${row.before_image_b64}` : null;
 
   if (imageSrc) {
-    return <img src={imageSrc} alt="Scan thumbnail" className="h-full w-full object-cover" />;
+    return (
+      <Image
+        src={imageSrc}
+        alt="Scan thumbnail"
+        width={160}
+        height={96}
+        unoptimized
+        className="h-full w-full object-cover"
+      />
+    );
   }
 
   return (
@@ -206,7 +216,14 @@ export function FarmerDashboard() {
             <input {...zone.getInputProps()} />
             {previewUrl ? (
               <>
-                <img src={previewUrl} alt="Leaf preview" className="h-full w-full rounded-xl object-cover" />
+                <Image
+                  src={previewUrl}
+                  alt="Leaf preview"
+                  width={1200}
+                  height={720}
+                  unoptimized
+                  className="h-full w-full rounded-xl object-cover"
+                />
                 {detectMutation.isPending ? (
                   <div className="absolute inset-0 bg-black/15">
                     <div className="line-sweep absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#22c55e] to-transparent" />
@@ -257,7 +274,16 @@ export function FarmerDashboard() {
           {result ? (
             <div className="space-y-4">
               <div className="overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
-                {beforeSrc ? <img src={beforeSrc} alt="Scan source" className="h-56 w-full object-cover" /> : null}
+                {beforeSrc ? (
+                  <Image
+                    src={beforeSrc}
+                    alt="Scan source"
+                    width={1200}
+                    height={448}
+                    unoptimized
+                    className="h-56 w-full object-cover"
+                  />
+                ) : null}
               </div>
 
               <div className="rounded-2xl border border-[var(--card-border)] p-4">

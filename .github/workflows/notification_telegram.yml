@@ -1,0 +1,366 @@
+# ════════════════════════════════════════════════════════════
+# 📬 Universal Telegram CI/CD Notifier
+# ════════════════════════════════════════════════════════════
+#
+# ➤ Drop into any repo:  .github/workflows/telegram-notify.yml
+# ➤ Set two secrets. Done. Zero editing. Works everywhere.
+# ➤ Fires after EVERY workflow. Shows concise per-job results.
+#
+# ┌──────────────────────────────────────────────────────────┐
+# │  REQUIRED SECRETS                                        │
+# ├──────────────────────────────────────────────────────────┤
+# │  TELEGRAM_BOT_TOKEN   Bot token from @BotFather          │
+# │  TELEGRAM_CHAT_ID     Target chat / group / channel ID   │
+# └──────────────────────────────────────────────────────────┘
+# ┌──────────────────────────────────────────────────────────┐
+# │  OPTIONAL VARIABLES  (Settings → Variables → Actions)    │
+# ├──────────────────────────────────────────────────────────┤
+# │  PROJECT_NAME          Display name (fallback: repo name) │
+# │  NOTIFY_ON             Conclusions to notify on           │
+# │                        e.g. "failure,timed_out"           │
+# │                        (default: all)                     │
+# │  NOTIFY_EXCLUDE        Workflow names to skip             │
+# │                        e.g. "Dependabot,Stale Issues"    │
+# │  NOTIFY_SILENT         "true" → send without sound       │
+# │  NOTIFY_THREAD_ID      Topic thread ID for supergroups   │
+# │  NOTIFY_ONLY_BRANCHES  Branches to notify on             │
+# │                        e.g. "main,staging,production"    │
+# │                        (default: all branches)           │
+# └──────────────────────────────────────────────────────────┘
+#
+# ════════════════════════════════════════════════════════════
+
+name: Telegram Notifications
+
+on:
+  workflow_run:
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  notify:
+    name: Send Telegram Notification
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Validate secrets
+        id: gate
+        run: |
+          missing=()
+          [[ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]] && missing+=("TELEGRAM_BOT_TOKEN")
+          [[ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]]    && missing+=("TELEGRAM_CHAT_ID")
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::warning::Missing secrets: ${missing[*]}. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Send notification
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          TELEGRAM_BOT_TOKEN:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW_VARS_JSON:   '${{ toJson(vars) }}'
+          WORKFLOW_NAME:        ${{ github.event.workflow_run.name }}
+          CONCLUSION:           ${{ github.event.workflow_run.conclusion }}
+          REPO:                 ${{ github.repository }}
+          BRANCH:               ${{ github.event.workflow_run.head_branch }}
+          COMMIT_SHA:           ${{ github.event.workflow_run.head_sha }}
+          RUN_URL:              ${{ github.event.workflow_run.html_url }}
+          RUN_ID:               ${{ github.event.workflow_run.id }}
+          RUN_NUMBER:           ${{ github.event.workflow_run.run_number }}
+          RUN_ATTEMPT:          ${{ github.event.workflow_run.run_attempt }}
+          ACTOR:                ${{ github.event.workflow_run.actor.login }}
+          TRIGGER_EVENT:        ${{ github.event.workflow_run.event }}
+          CREATED_AT:           ${{ github.event.workflow_run.created_at }}
+          UPDATED_AT:           ${{ github.event.workflow_run.updated_at }}
+          GH_TOKEN:             ${{ github.token }}
+        run: |
+          python3 - <<'PYTHON'
+          import html
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime, timezone
+
+          # ═══════════════════════════════════════════════════════
+          #  Utilities
+          # ═══════════════════════════════════════════════════════
+
+          def env(key, default=""):
+              return os.environ.get(key, "") or default
+
+          vars_json = env("WORKFLOW_VARS_JSON", "{}")
+          try:
+              workflow_vars = json.loads(vars_json)
+              if not isinstance(workflow_vars, dict):
+                  workflow_vars = {}
+          except Exception:
+              workflow_vars = {}
+
+          def var(key, default=""):
+              value = workflow_vars.get(key, default)
+              return str(value) if value is not None else default
+
+          def csv_set(val):
+              return {x.strip().lower() for x in val.split(",") if x.strip()} if val else set()
+
+          def gh_api(path):
+              url = f"https://api.github.com/repos/{env('REPO')}/{path}"
+              req = urllib.request.Request(url)
+              req.add_header("Authorization", f"Bearer {env('GH_TOKEN')}")
+              req.add_header("Accept", "application/vnd.github+json")
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      return json.loads(r.read())
+              except Exception as exc:
+                  print(f"::debug::GitHub API error ({path}): {exc}")
+                  return None
+
+          def fmt_duration(start_iso, end_iso):
+              try:
+                  fmt = "%Y-%m-%dT%H:%M:%SZ"
+                  secs = int((datetime.strptime(end_iso, fmt) - datetime.strptime(start_iso, fmt)).total_seconds())
+                  if secs < 0:
+                      return "n/a"
+                  parts = []
+                  for unit, div in [("h", 3600), ("m", 60), ("s", 1)]:
+                      val, secs = divmod(secs, div)
+                      if val:
+                          parts.append(f"{val}{unit}")
+                  return " ".join(parts) or "0s"
+              except Exception:
+                  return "n/a"
+
+          def fmt_job_duration(job):
+              s = job.get("started_at")
+              c = job.get("completed_at")
+              return fmt_duration(s, c) if s and c else ""
+
+          def telegram_send(token, payload, retries=3):
+              body = json.dumps(payload).encode()
+              url = f"https://api.telegram.org/bot{token}/sendMessage"
+              delay = 2
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(url, data=body, method="POST")
+                  req.add_header("Content-Type", "application/json")
+                  try:
+                      with urllib.request.urlopen(req, timeout=15) as resp:
+                          result = json.loads(resp.read())
+                          if result.get("ok"):
+                              print(f"✓ Sent (attempt {attempt}/{retries})")
+                              return True
+                          print(f"::warning::ok=false: {result.get('description')}")
+                  except urllib.error.HTTPError as exc:
+                      print(f"::warning::Attempt {attempt}/{retries} — HTTP {exc.code}: {exc.read().decode(errors='replace')}")
+                  except Exception as exc:
+                      print(f"::warning::Attempt {attempt}/{retries} — {type(exc).__name__}: {exc}")
+                  if attempt < retries:
+                      print(f"  Retrying in {delay}s…")
+                      time.sleep(delay)
+                      delay *= 2
+              return False
+
+          e = html.escape  # shorthand
+
+          # ═══════════════════════════════════════════════════════
+          #  Gate — should we send this notification?
+          # ═══════════════════════════════════════════════════════
+
+          conclusion  = env("CONCLUSION", "unknown").lower()
+          workflow    = env("WORKFLOW_NAME", "Unknown")
+          branch      = env("BRANCH", "unknown")
+
+          # 1) Never notify about self
+          if workflow.lower() == "telegram notifications":
+              print("Self-trigger. Skipping.")
+              sys.exit(0)
+
+          # 2) Excluded workflows
+          excluded = csv_set(var("NOTIFY_EXCLUDE"))
+          if workflow.lower() in excluded:
+              print(f"'{workflow}' excluded. Skipping.")
+              sys.exit(0)
+
+          # 3) Conclusion filter
+          notify_on = csv_set(var("NOTIFY_ON"))
+          if notify_on and conclusion not in notify_on:
+              print(f"'{conclusion}' not in NOTIFY_ON. Skipping.")
+              sys.exit(0)
+
+          # 4) Branch filter
+          only_branches = csv_set(var("NOTIFY_ONLY_BRANCHES"))
+          if only_branches and branch.lower() not in only_branches:
+              print(f"'{branch}' not in NOTIFY_ONLY_BRANCHES. Skipping.")
+              sys.exit(0)
+
+          # ═══════════════════════════════════════════════════════
+          #  Collect data
+          # ═══════════════════════════════════════════════════════
+
+          token       = os.environ["TELEGRAM_BOT_TOKEN"]
+          chat_id     = os.environ["TELEGRAM_CHAT_ID"]
+          project     = var("PROJECT_NAME") or env("REPO").split("/")[-1].replace("-", " ").replace("_", " ").title()
+          repo        = env("REPO")
+          sha         = env("COMMIT_SHA")
+          run_url     = env("RUN_URL")
+          run_num     = env("RUN_NUMBER")
+          run_id      = env("RUN_ID")
+          run_attempt = env("RUN_ATTEMPT", "1")
+          actor       = env("ACTOR", "unknown")
+          event       = env("TRIGGER_EVENT", "push")
+          created     = env("CREATED_AT")
+          updated     = env("UPDATED_AT")
+
+          # ── Commit message ──────────────────────────────────
+
+          commit_msg = "No commit message"
+          commit_author = actor
+          if sha:
+              data = gh_api(f"commits/{sha}")
+              if data and "commit" in data:
+                  raw = data["commit"].get("message", "")
+                  first = (raw.splitlines() or [""])[0][:80]
+                  commit_msg = first or "No commit message"
+                  commit_author = (
+                      data.get("author", {}).get("login")
+                      or data["commit"].get("author", {}).get("name")
+                      or actor
+                  )
+
+          # ── All jobs with per-job results ───────────────────
+
+          jobs_data = []
+          if run_id:
+              data = gh_api(f"actions/runs/{run_id}/jobs?filter=latest&per_page=100")
+              if data and "jobs" in data:
+                  jobs_data = data["jobs"]
+
+          # ═══════════════════════════════════════════════════════
+          #  Build the message
+          # ═══════════════════════════════════════════════════════
+
+          STATUS = {
+              "success":   ("✅", "Successful"),
+              "failure":   ("❌", "Failed"),
+              "cancelled": ("⚠️", "Cancelled"),
+              "timed_out": ("⏰", "Timed Out"),
+              "skipped":   ("⏭️", "Skipped"),
+          }
+
+          JOB_ICON = {
+              "success":    "✅",
+              "failure":    "❌",
+              "cancelled":  "⚠️",
+              "skipped":    "⏭️",
+              "timed_out":  "⏰",
+              "in_progress":"🔄",
+              "queued":     "🕐",
+          }
+
+          main_emoji, main_label = STATUS.get(conclusion, ("ℹ️", conclusion.title()))
+          short_sha   = sha[:7] if sha else "unknown"
+          duration    = fmt_duration(created, updated)
+          ts          = datetime.now(timezone.utc).strftime("%b %d, %Y • %H:%M UTC")
+          attempt_str = f"  ⟳ attempt #{run_attempt}" if run_attempt and int(run_attempt) > 1 else ""
+
+          lines = [
+              f"{main_emoji} <b>{e(project)}</b> — {e(main_label)}",
+              "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+              "",
+              f"📦 <b>{e(workflow)}</b>  <code>#{e(run_num)}</code>{e(attempt_str)}",
+              f"🌿 <code>{e(branch)}</code>  ‹{e(event)}›",
+              f'🔗 <a href="https://github.com/{e(repo)}/commit/{e(sha)}">{e(short_sha)}</a>'
+              f" — <i>{e(commit_msg)}</i>",
+              f'👤 <a href="https://github.com/{e(commit_author)}">@{e(commit_author)}</a>'
+              + (f'  (triggered by <a href="https://github.com/{e(actor)}">@{e(actor)}</a>)' if commit_author.lower() != actor.lower() else ""),
+              f"⏱ {e(duration)}{e(attempt_str)}",
+          ]
+
+          # ── Per-job breakdown ───────────────────────────────
+
+          if jobs_data:
+              lines += ["", "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"]
+
+              # Summary counters
+              counts = {}
+              for j in jobs_data:
+                  c = j.get("conclusion") or j.get("status") or "unknown"
+                  counts[c] = counts.get(c, 0) + 1
+
+              summary_parts = []
+              for key, label in [("success","passed"),("failure","failed"),("cancelled","cancelled"),("skipped","skipped"),("timed_out","timed out")]:
+                  if counts.get(key):
+                      summary_parts.append(f"{counts[key]} {label}")
+              if summary_parts:
+                  lines.append(f"<b>{len(jobs_data)} jobs</b>: {', '.join(summary_parts)}")
+                  lines.append("")
+
+              for job in jobs_data:
+                  jc   = job.get("conclusion") or job.get("status") or "unknown"
+                  icon = JOB_ICON.get(jc, "❔")
+                  name = job.get("name", "unknown")
+                  dur  = fmt_job_duration(job)
+                  dur_str = f"  ({dur})" if dur else ""
+
+                  lines.append(f"  {icon} <b>{e(name)}</b>{e(dur_str)}")
+
+                  # On failure: show which steps failed
+                  if jc == "failure":
+                      failed_steps = [
+                          s["name"] for s in job.get("steps", [])
+                          if s.get("conclusion") == "failure"
+                      ]
+                      for step in failed_steps[:4]:
+                          lines.append(f"      ↳ ❌ {e(step)}")
+
+          # ── Footer ─────────────────────────────────────────
+
+          lines += [
+              "",
+              "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+              f'🔍 <a href="{e(run_url)}">View Full Run Details →</a>',
+              f"🕐 {e(ts)}",
+          ]
+
+          message = "\n".join(lines)
+
+          # ═══════════════════════════════════════════════════════
+          #  Send
+          # ═══════════════════════════════════════════════════════
+
+          payload = {
+              "chat_id": chat_id,
+              "text": message,
+              "parse_mode": "HTML",
+              "disable_web_page_preview": True,
+          }
+
+          if var("NOTIFY_SILENT").lower() == "true":
+              payload["disable_notification"] = True
+
+          thread_id = var("NOTIFY_THREAD_ID")
+          if thread_id:
+              try:
+                  payload["message_thread_id"] = int(thread_id)
+              except ValueError:
+                  print(f"::warning::Invalid NOTIFY_THREAD_ID: {thread_id}")
+
+          if not telegram_send(token, payload):
+              print("::error::All retries exhausted.")
+              sys.exit(1)
+          PYTHON

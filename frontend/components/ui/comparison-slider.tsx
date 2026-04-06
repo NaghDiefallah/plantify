@@ -3,6 +3,7 @@
 import {motion, useMotionValue, useSpring, useTransform} from "framer-motion";
 import {GripVertical} from "lucide-react";
 import {useCallback, useRef} from "react";
+import Image from "next/image";
 
 interface ComparisonSliderProps {
   beforeSrc: string;
@@ -77,21 +78,29 @@ export function ComparisonSlider({
       className={`relative w-full select-none cursor-col-resize overflow-hidden rounded-2xl border border-lumaris-border bg-black/50 ${className}`}
     >
       {/* After image — always fully visible underneath */}
-      <img
+      <Image
         src={afterSrc}
         alt={afterLabel}
+        fill
+        unoptimized
         draggable={false}
         className="absolute inset-0 h-full w-full object-cover"
       />
 
       {/* Before image — reveals from left as handle moves right */}
-      <motion.img
-        src={beforeSrc}
-        alt={beforeLabel}
-        draggable={false}
+      <motion.div
         style={{clipPath: clipBefore}}
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+        className="absolute inset-0"
+      >
+        <Image
+          src={beforeSrc}
+          alt={beforeLabel}
+          fill
+          unoptimized
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
+      </motion.div>
 
       {/* Divider line + handle */}
       <motion.div

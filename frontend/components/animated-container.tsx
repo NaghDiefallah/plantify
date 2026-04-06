@@ -43,7 +43,18 @@ export function AnimatedContainer({
   slideUp = false,
   className = "",
 }: AnimatedContainerProps) {
-  const variants = staggerChildren ? containerVariants : undefined;
+  const variants = staggerChildren
+    ? {
+        ...containerVariants,
+        visible: {
+          ...containerVariants.visible,
+          transition: {
+            ...containerVariants.visible.transition,
+            delayChildren: staggerDelay,
+          },
+        },
+      }
+    : undefined;
   
   if (!staggerChildren && (fadeIn || slideUp)) {
     return (
