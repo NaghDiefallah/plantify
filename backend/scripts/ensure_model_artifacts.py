@@ -10,6 +10,7 @@ from pathlib import Path
 
 CURRENT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = CURRENT_DIR.parent
+REPO_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
@@ -18,6 +19,7 @@ DEFAULT_ONNX = MODEL_DIR / "plantify_model.onnx"
 DEFAULT_LABELS = MODEL_DIR / "classes.json"
 DEFAULT_CHECKPOINT = MODEL_DIR / "plantify_model.pth"
 DEFAULT_REGISTRY = MODEL_DIR / "model_registry.json"
+ROOT_CHECKPOINT = REPO_ROOT / "plantify_model.pth"
 
 
 def _load_bootstrap_classes(raw: str | None) -> list[str]:
@@ -26,6 +28,16 @@ def _load_bootstrap_classes(raw: str | None) -> list[str]:
         if parsed:
             return parsed
     return ["unknown_plant", "healthy", "diseased"]
+
+
+def _resolve_checkpoint_path(requested_checkpoint: Path) -> Path:
+    if requested_checkpoint.exists():
+        return requested_checkpoint
+
+    if ROOT_CHECKPOINT.exists():
+        return ROOT_CHECKPOINT
+
+    return requested_checkpoint
 
 
 def _write_bootstrap_checkpoint(checkpoint_path: Path, classes: list[str], arch: str) -> None:
@@ -102,12 +114,14 @@ def _register_active_version(
 def ensure_model_artifacts(args: argparse.Namespace) -> None:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    checkpoint_path = Path(args.checkpoint).resolve()
+    requested_checkpoint_path = Path(args.checkpoint).resolve()
+    checkpoint_path = _resolve_checkpoint_path(requested_checkpoint_path)
     checkpoint_exists = checkpoint_path.exists()
 
     if not checkpoint_exists:
         classes = _load_bootstrap_classes(args.bootstrap_classes)
-        _write_bootstrap_checkpoint(checkpoint_path=checkpoint_path, classes=classes, arch=args.arch)
+        _write_bootstrap_checkpoint(checkpoint_path=requested_checkpoint_path, classes=classes, arch=args.arch)
+        checkpoint_path = requested_checkpoint_path
         source_type = "ci-bootstrap"
     else:
         source_type = "checkpoint-export"
@@ -126,6 +140,7 @@ def ensure_model_artifacts(args: argparse.Namespace) -> None:
     )
 
     summary = {
+        "requested_checkpoint": str(requested_checkpoint_path),
         "checkpoint": str(checkpoint_path),
         "checkpoint_created": not checkpoint_exists,
         "onnx": str(DEFAULT_ONNX),
