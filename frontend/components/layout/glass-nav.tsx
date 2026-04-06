@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import {useTranslations} from "next-intl";
 import {useEffect, useState} from "react";
 
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
+import {Link} from "@/i18n/navigation";
 import {AUTH_STATE_CHANGED_EVENT, getStoredAccessToken} from "@/lib/api";
 
 export function GlassNav() {

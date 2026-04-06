@@ -1,5 +1,5 @@
 import {redirect} from "next/navigation";
 
-export default function LegacySignupPage() {
+export default function LegacyRegisterPage() {
   redirect("/en/register");
 }

@@ -33,10 +33,13 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <AppProviders>
-        <div dir={rtl ? "rtl" : "ltr"} className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div
+          dir={rtl ? "rtl" : "ltr"}
+          className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]"
+        >
           <LocaleSync />
           <GlassNav />
-          {children}
+          <main className="flex-1">{children}</main>
           <SiteFooter />
         </div>
       </AppProviders>

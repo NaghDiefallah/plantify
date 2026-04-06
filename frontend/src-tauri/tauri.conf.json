@@ -31,6 +31,7 @@
     "active": true,
     "targets": [
       "nsis",
+      "appimage",
       "deb"
     ],
     "icon": [
@@ -40,6 +41,6 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": true
   }
 }

@@ -1,10 +1,10 @@
 import {redirect} from "next/navigation";
 
 export default async function FarmerPage({
-  params: _params
+  params
 }: {
   params: Promise<{locale: string}>;
 }) {
-  await _params;
-  redirect("/dashboard");
+  const {locale} = await params;
+  redirect(`/${locale}/dashboard`);
 }
