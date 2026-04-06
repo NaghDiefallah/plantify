@@ -1,5 +1,3 @@
-import {useLocale} from "next-intl";
-
 const contentByLocale: Record<string, {title: string; updated: string; sections: Array<{heading: string; body: string}>}> = {
   en: {
     title: "Privacy Policy",
@@ -68,8 +66,12 @@ const contentByLocale: Record<string, {title: string; updated: string; sections:
   }
 };
 
-export default function PrivacyPage() {
-  const locale = useLocale();
+export default async function PrivacyPage({
+  params
+}: {
+  params: Promise<{locale: string}>;
+}) {
+  const {locale} = await params;
   const content = contentByLocale[locale] ?? contentByLocale.en;
 
   return (

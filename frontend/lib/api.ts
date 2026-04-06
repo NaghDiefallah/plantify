@@ -8,8 +8,9 @@ import type {
   UserRole,
   UserRoleUpdatePayload
 } from "@/lib/types";
+import {getApiUrl, isNativeMobilePlatform} from "@/lib/platform";
 
-const API_BASE = resolveApiBase();
+const API_BASE = getApiUrl();
 const ACCESS_TOKEN_KEY = "plantify_access_token";
 const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
@@ -23,28 +24,6 @@ function emitAuthStateChanged(): void {
 
 function isLocalHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function resolveApiBase(): string {
-  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-
-  if (typeof window === "undefined") {
-    return configuredBase || "/api";
-  }
-
-  if (!configuredBase) {
-    return "/api";
-  }
-
-  try {
-    const configuredUrl = new URL(configuredBase, window.location.origin);
-    if (isLocalHostname(configuredUrl.hostname) && !isLocalHostname(window.location.hostname)) {
-      return "/api";
-    }
-    return configuredBase;
-  } catch {
-    return configuredBase;
-  }
 }
 
 export function getStoredAccessToken(): string | null {
@@ -102,27 +81,6 @@ function generateRequestId(): string {
   return `fe-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function resolveFallbackApiBase(): string {
-  if (typeof window !== "undefined") {
-    if (isLocalHostname(window.location.hostname)) {
-      return `${window.location.protocol}//${window.location.hostname}:8000/api`;
-    }
-    return "/api";
-  }
-  return "http://localhost:8000/api";
-}
-
-function withFallbackBase(input: RequestInfo | URL): RequestInfo | URL {
-  if (typeof input !== "string") {
-    return input;
-  }
-  if (!input.startsWith("/api/")) {
-    return input;
-  }
-  const fallbackBase = resolveFallbackApiBase();
-  return `${fallbackBase}${input.slice(4)}`;
-}
-
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (!headers.has("X-Request-ID")) {
@@ -132,21 +90,19 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
   try {
     return await fetch(input, { ...init, headers });
   } catch {
-    if (typeof input === "string" && input.startsWith("/api/")) {
-      try {
-        return await fetch(withFallbackBase(input), {...init, headers});
-      } catch {
-        throw new Error(resolveBackendUnavailableMessage());
-      }
-    }
     throw new Error(resolveBackendUnavailableMessage());
   }
 }
 
 function resolveBackendUnavailableMessage(): string {
+  if (typeof window !== "undefined" && isNativeMobilePlatform()) {
+    return "Unable to reach Plantify backend. Verify the phone and API server are on the same network and the mobile API URL is correct.";
+  }
+
   if (typeof window !== "undefined" && isLocalHostname(window.location.hostname)) {
     return "Unable to reach Plantify backend. Please start backend server on port 8000.";
   }
+
   return "Unable to reach Plantify backend. Please verify the deployed API is reachable.";
 }
 

@@ -9,6 +9,10 @@ import {AppProviders} from "@/components/providers/app-providers";
 import {LocaleSync} from "@/components/ui/locale-sync";
 import {routing} from "@/i18n/routing";
 
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({locale}));
+}
+
 export default async function LocaleLayout({
   children,
   params
@@ -23,7 +27,7 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
-  const messages = await getMessages();
+  const messages = await getMessages({locale});
   const rtl = locale === "ar";
 
   return (
