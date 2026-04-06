@@ -7,7 +7,7 @@ import {useRouter} from "next/navigation";
 import {FormEvent, useState} from "react";
 import {motion} from "framer-motion";
 
-import {fetchProfile, login, storeAuthTokens, storeUserRole} from "@/lib/api";
+import {clearStoredTokens, fetchProfile, login, storeAuthTokens, storeUserRole} from "@/lib/api";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {FloatingField} from "@/components/auth/floating-field";
@@ -26,6 +26,7 @@ export default function LoginPage() {
     setLoading(true);
     setSuccess(false);
     setError(null);
+    clearStoredTokens();
 
     try {
       const payload = await login(email, password);

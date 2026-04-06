@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost,http://127.0.0.1"
     cors_origin_regex: str = (
-        r"^(tauri://localhost|https://tauri\.localhost|http://tauri\.localhost|capacitor://localhost|https://localhost|http://localhost)$"
+        r"^(tauri://localhost|https://tauri\.localhost|http://tauri\.localhost|capacitor://localhost|app://localhost|https://localhost|http://localhost)$"
     )
     cors_allow_methods: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     cors_allow_headers: str = "Authorization,Content-Type,Accept,Origin,X-Request-ID"

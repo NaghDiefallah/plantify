@@ -5,6 +5,7 @@ import {Code2, ShieldCheck, Stethoscope, Tractor, Users} from "lucide-react";
 
 import type {UserProfile, UserRole} from "@/lib/types";
 import {
+  clearStoredTokens,
   fetchProfile,
   fetchUsers,
   getStoredAccessToken,
@@ -162,8 +163,9 @@ export function RoleDashboard() {
         setToken(accessToken);
         if (!accessToken) {
           if (!cancelled) {
-            setError("Please sign in to access dashboard.");
+            clearStoredTokens();
             setLoading(false);
+            window.location.replace("/login");
           }
           return;
         }
@@ -183,7 +185,14 @@ export function RoleDashboard() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load dashboard");
+          const message = err instanceof Error ? err.message : "Unable to load dashboard";
+          if (message.toLowerCase().includes("session expired") || message.toLowerCase().includes("unauthorized")) {
+            clearStoredTokens();
+            setLoading(false);
+            window.location.replace("/login");
+            return;
+          }
+          setError(message);
         }
       } finally {
         if (!cancelled) {
