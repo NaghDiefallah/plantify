@@ -9,6 +9,7 @@ import {
   fetchProfile,
   fetchUsers,
   getStoredAccessToken,
+  getStoredRole,
   logoutCurrentSession,
   storeUserRole,
   updateUserRole
@@ -147,10 +148,21 @@ function RoleManager({
 }
 
 export function RoleDashboard() {
-  const [role, setRole] = useState<UserRole | null>(null);
+  // Read synchronously so the correct panel (or nothing) renders on the very first frame,
+  // eliminating the "Loading dashboard…" → redirect flash on Android.
+  const [redirecting, setRedirecting] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return !getStoredAccessToken();
+  });
+  // Use the cached role so returning users see their panel immediately.
+  const [role, setRole] = useState<UserRole | null>(() => {
+    if (typeof window === "undefined") return null;
+    return getStoredRole();
+  });
   const [user, setUser] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [token, setToken] = useState<string | null>(null);
+  // Only block on loading when we have no cached role to show yet.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,7 +176,7 @@ export function RoleDashboard() {
         if (!accessToken) {
           if (!cancelled) {
             clearStoredTokens();
-            setLoading(false);
+            setRedirecting(true);
             window.location.replace("/login");
           }
           return;
@@ -188,7 +200,7 @@ export function RoleDashboard() {
           const message = err instanceof Error ? err.message : "Unable to load dashboard";
           if (message.toLowerCase().includes("session expired") || message.toLowerCase().includes("unauthorized")) {
             clearStoredTokens();
-            setLoading(false);
+            setRedirecting(true);
             window.location.replace("/login");
             return;
           }
@@ -240,7 +252,11 @@ export function RoleDashboard() {
     }
   };
 
-  if (loading) {
+  // Redirect in progress — render nothing so no content flashes before navigation.
+  if (redirecting) return null;
+
+  // Only block on a loading spinner when we have no cached role to display yet.
+  if (loading && role === null) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-10">
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
@@ -276,7 +292,7 @@ export function RoleDashboard() {
       {role === "expert" ? <ExpertPanel /> : null}
       {role === "admin" ? <AdminPanel /> : null}
       {role === "developer" ? <DeveloperPanel user={user} /> : null}
-      {role === "farmer" || !role ? <FarmerPanel /> : null}
+      {role === "farmer" ? <FarmerPanel /> : null}
 
       {role === "admin" || role === "developer" ? (
         <RoleManager users={users} currentUser={user} onUpdate={updateRole} />
