@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Sora } from "next/font/google";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
 
+import {AppProviders} from "@/components/providers/app-providers";
+import {DefaultIntlProvider} from "@/components/providers/default-intl-provider";
 import "./globals.css";
 
 const sora = Sora({
@@ -35,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#22c55e" />
       </head>
       <body className="antialiased">
-        {children}
+        <DefaultIntlProvider>
+          <AppProviders>{children}</AppProviders>
+        </DefaultIntlProvider>
       </body>
     </html>
   );

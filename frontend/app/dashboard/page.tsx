@@ -1,5 +1,5 @@
-import {redirect} from "next/navigation";
+import {RoleDashboard} from "@/components/dashboard/role-dashboard";
 
-export default function LegacyDashboardPage() {
-  redirect("/en/dashboard");
+export default function DashboardPage() {
+  return <RoleDashboard />;
 }

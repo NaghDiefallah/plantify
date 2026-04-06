@@ -1,5 +1,9 @@
-import {redirect} from "next/navigation";
+import {ChatInterface} from "@/components/chat/chat-interface";
 
-export default function LegacyChatPage() {
-  redirect("/en/chat");
+export default function ChatPage() {
+  return (
+    <main>
+      <ChatInterface />
+    </main>
+  );
 }

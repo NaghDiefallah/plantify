@@ -1,5 +1,5 @@
 import {redirect} from "next/navigation";
 
-export default function LegacyExpertPage() {
-  redirect("/en/expert");
+export default function ExpertPage() {
+  redirect("/dashboard");
 }

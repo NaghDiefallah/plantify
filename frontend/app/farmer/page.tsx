@@ -1,5 +1,5 @@
 import {redirect} from "next/navigation";
 
-export default function LegacyFarmerPage() {
-  redirect("/en/farmer");
+export default function FarmerPage() {
+  redirect("/dashboard");
 }

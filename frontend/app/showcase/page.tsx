@@ -1,5 +1,1 @@
-import {redirect} from "next/navigation";
-
-export default function LegacyShowcasePage() {
-  redirect("/en/showcase");
-}
+export {default, metadata} from "../[locale]/showcase/page";

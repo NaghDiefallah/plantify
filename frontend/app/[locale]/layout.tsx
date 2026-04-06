@@ -5,7 +5,6 @@ import {notFound} from "next/navigation";
 
 import {GlassNav} from "@/components/layout/glass-nav";
 import {SiteFooter} from "@/components/layout/site-footer";
-import {AppProviders} from "@/components/providers/app-providers";
 import {LocaleSync} from "@/components/ui/locale-sync";
 import {routing} from "@/i18n/routing";
 
@@ -32,17 +31,15 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <AppProviders>
-        <div
-          dir={rtl ? "rtl" : "ltr"}
-          className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]"
-        >
-          <LocaleSync />
-          <GlassNav />
-          <main className="flex-1">{children}</main>
-          <SiteFooter />
-        </div>
-      </AppProviders>
+      <div
+        dir={rtl ? "rtl" : "ltr"}
+        className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]"
+      >
+        <LocaleSync />
+        <GlassNav />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+      </div>
     </NextIntlClientProvider>
   );
 }
