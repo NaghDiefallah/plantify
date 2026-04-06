@@ -8,13 +8,16 @@ import type {
   UserRole,
   UserRoleUpdatePayload
 } from "@/lib/types";
-import {getApiUrl, isNativeMobilePlatform} from "@/lib/platform";
+import {getApiUrl, getPlatform, isNativeMobilePlatform} from "@/lib/platform";
 
 const API_BASE = getApiUrl();
+const API_BASE_STORAGE_KEY = "plantify_api_base";
 const ACCESS_TOKEN_KEY = "plantify_access_token";
 const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
 export const AUTH_STATE_CHANGED_EVENT = "plantify-auth-state-changed";
+
+let activeApiBase = API_BASE;
 
 function emitAuthStateChanged(): void {
   if (typeof window !== "undefined") {
@@ -81,15 +84,127 @@ function generateRequestId(): string {
   return `fe-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function getPersistedApiBase(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY)?.trim();
+  if (!stored) {
+    return null;
+  }
+
+  return stored;
+}
+
+function setPersistedApiBase(base: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(API_BASE_STORAGE_KEY, base);
+}
+
+function dedupeBases(bases: string[]): string[] {
+  const normalized: string[] = [];
+  for (const base of bases) {
+    const value = base.trim().replace(/\/+$/, "");
+    if (!value) {
+      continue;
+    }
+    if (!normalized.includes(value)) {
+      normalized.push(value);
+    }
+  }
+  return normalized;
+}
+
+function getApiBaseCandidates(originalBase: string): string[] {
+  const candidates: string[] = [];
+  const persisted = getPersistedApiBase();
+  if (persisted) {
+    candidates.push(persisted);
+  }
+
+  candidates.push(activeApiBase, originalBase);
+
+  if (typeof window !== "undefined") {
+    const platform = getPlatform();
+    if (platform === "desktop") {
+      candidates.push("http://127.0.0.1:8000/api", "http://localhost:8000/api");
+    }
+
+    if (platform === "android") {
+      const mobileDev = process.env.NEXT_PUBLIC_MOBILE_DEV_API_URL?.trim();
+      if (mobileDev) {
+        candidates.push(mobileDev);
+      }
+      candidates.push("http://10.0.2.2:8000/api", "http://192.168.1.50:8000/api", "http://localhost:8000/api");
+    }
+  }
+
+  return dedupeBases(candidates);
+}
+
+function toUrlString(input: RequestInfo | URL): string | null {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  return null;
+}
+
+function replaceApiBase(url: string, fromBase: string, toBase: string): string {
+  return url.startsWith(fromBase) ? `${toBase}${url.slice(fromBase.length)}` : url;
+}
+
+function rememberWorkingApiBase(base: string): void {
+  activeApiBase = base;
+  setPersistedApiBase(base);
+}
+
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (!headers.has("X-Request-ID")) {
     headers.set("X-Request-ID", generateRequestId());
   }
 
+  const originalUrl = toUrlString(input);
+  const candidates = getApiBaseCandidates(API_BASE);
+  const preferredBase = candidates[0] ?? API_BASE;
+  const firstUrl = originalUrl ? replaceApiBase(originalUrl, API_BASE, preferredBase) : null;
+  const firstInput: RequestInfo | URL = firstUrl ?? input;
+
   try {
-    return await fetch(input, { ...init, headers });
+    const response = await fetch(firstInput, { ...init, headers });
+    if (originalUrl && firstUrl && firstUrl !== originalUrl) {
+      rememberWorkingApiBase(preferredBase);
+    }
+    return response;
   } catch {
+    if (!originalUrl) {
+      throw new Error(resolveBackendUnavailableMessage());
+    }
+
+    for (const candidateBase of candidates.slice(1)) {
+      const nextUrl = replaceApiBase(originalUrl, API_BASE, candidateBase);
+      if (nextUrl === originalUrl) {
+        continue;
+      }
+
+      try {
+        const response = await fetch(nextUrl, {...init, headers});
+        rememberWorkingApiBase(candidateBase);
+        return response;
+      } catch {
+        // Try next candidate.
+      }
+    }
+
     throw new Error(resolveBackendUnavailableMessage());
   }
 }
