@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Bot, X, Send, Loader } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getApiUrl } from "@/lib/platform";
 
 export interface ChatMessage {
   id: string;
@@ -34,6 +35,7 @@ export function AgriBotWidget({
   const t = useTranslations("chat");
   const locale = useLocale();
   const isRTL = locale === "ar";
+  const chatStreamUrl = `${getApiUrl()}/chat/stream`;
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -92,7 +94,7 @@ export function AgriBotWidget({
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 65000);
-      const response = await fetch("/api/chat/stream", {
+      const response = await fetch(chatStreamUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

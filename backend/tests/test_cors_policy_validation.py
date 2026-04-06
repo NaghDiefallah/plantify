@@ -41,6 +41,15 @@ def test_production_accepts_https_domain_cors_origins() -> None:
     assert "https://plantify.example.com" in settings.cors_origin_list
 
 
+def test_production_accepts_native_app_origin_regex() -> None:
+    settings = Settings(
+        **_VALID_PROD_KWARGS,
+        cors_origins="https://plantify.example.com,https://api.plantify.example.com",
+        cors_origin_regex=r"^(tauri://localhost|https://localhost|capacitor://localhost)$",
+    )
+    assert settings.cors_origin_regex == r"^(tauri://localhost|https://localhost|capacitor://localhost)$"
+
+
 def test_development_allows_localhost_cors_origins() -> None:
     settings = Settings(
         app_env="development",

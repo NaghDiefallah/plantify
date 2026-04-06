@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Globe } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { getApiUrl } from "@/lib/platform";
 
 export interface ChatMessage {
   id: string;
@@ -20,6 +21,7 @@ export function ChatInterface() {
   const router = useRouter();
   const isRTL = locale === "ar";
   const localeStorageKey = "plantify.locale";
+  const chatStreamUrl = `${getApiUrl()}/chat/stream`;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -73,7 +75,7 @@ export function ChatInterface() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 65000);
-      const response = await fetch("/api/chat/stream", {
+      const response = await fetch(chatStreamUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

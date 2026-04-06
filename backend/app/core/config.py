@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     rate_limit_detect_per_minute: int = 60
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost,http://127.0.0.1"
+    cors_origin_regex: str = (
+        r"^(tauri://localhost|https://tauri\.localhost|http://tauri\.localhost|capacitor://localhost|https://localhost|http://localhost)$"
+    )
     cors_allow_methods: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     cors_allow_headers: str = "Authorization,Content-Type,Accept,Origin,X-Request-ID"
     role_elevation_code: str = ""
@@ -120,6 +123,9 @@ class Settings(BaseSettings):
 
             if not self.cors_origin_list:
                 raise ValueError("CORS_ORIGINS must be explicitly set in production")
+
+            if not self.cors_origin_regex.strip():
+                raise ValueError("CORS_ORIGIN_REGEX must not be empty in production")
 
         return self
 
