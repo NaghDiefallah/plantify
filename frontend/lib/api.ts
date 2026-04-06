@@ -18,6 +18,8 @@ const ROLE_KEY = "plantify_user_role";
 export const AUTH_STATE_CHANGED_EVENT = "plantify-auth-state-changed";
 
 let activeApiBase = API_BASE;
+const APP_STAGE = process.env.NEXT_PUBLIC_APP_STAGE?.trim() || process.env.NODE_ENV || "development";
+const IS_RELEASE_BUILD = APP_STAGE === "production" || APP_STAGE === "release";
 
 function emitAuthStateChanged(): void {
   if (typeof window !== "undefined") {
@@ -119,14 +121,27 @@ function dedupeBases(bases: string[]): string[] {
   return normalized;
 }
 
+function isLocalLikeApiBase(base: string): boolean {
+  try {
+    const {hostname} = new URL(base);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "10.0.2.2" || hostname.startsWith("192.168.");
+  } catch {
+    return false;
+  }
+}
+
 function getApiBaseCandidates(originalBase: string): string[] {
   const candidates: string[] = [];
+  candidates.push(originalBase);
+
   const persisted = getPersistedApiBase();
-  if (persisted) {
+  if (persisted && persisted !== originalBase) {
     candidates.push(persisted);
   }
 
-  candidates.push(activeApiBase, originalBase);
+  if (activeApiBase && activeApiBase !== originalBase && activeApiBase !== persisted) {
+    candidates.push(activeApiBase);
+  }
 
   if (typeof window !== "undefined") {
     const platform = getPlatform();
@@ -164,6 +179,10 @@ function replaceApiBase(url: string, fromBase: string, toBase: string): string {
 
 function rememberWorkingApiBase(base: string): void {
   activeApiBase = base;
+  if (IS_RELEASE_BUILD && isLocalLikeApiBase(base)) {
+    return;
+  }
+
   setPersistedApiBase(base);
 }
 
