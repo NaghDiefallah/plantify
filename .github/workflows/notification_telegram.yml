@@ -34,9 +34,9 @@ name: Telegram Notifications
 
 on:
   workflow_run:
-        workflows:
-            - Build, Publish, and Deploy
-            - Cross-Platform Release
+    workflows:
+      - Build, Publish, and Deploy
+      - Cross-Platform Release
     types: [completed]
 
 permissions:
@@ -364,6 +364,6 @@ jobs:
                   print(f"::warning::Invalid NOTIFY_THREAD_ID: {thread_id}")
 
           if not telegram_send(token, payload):
-              print("::error::All retries exhausted.")
-              sys.exit(1)
+              print("::warning::Telegram notification failed after all retries (non-blocking).")
+              sys.exit(0)
           PYTHON
