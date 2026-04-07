@@ -3,7 +3,7 @@ const path = require("node:path");
 const createNextIntlPlugin = require("next-intl/plugin");
 
 const isDev = process.env.NODE_ENV === "development";
-const isStaticExport = process.env.PLATFORM_TARGET === "static";
+const isStaticExport = process.env.NODE_ENV === "production" && process.env.PLATFORM_TARGET === "static";
 const outputFileTracingRoot = path.join(__dirname, "..");
 
 // Static export targets cannot rely on Next.js runtime rewrites or response
@@ -18,10 +18,13 @@ const connectSrc = isDev
 
 const nextConfig = {
   allowedDevOrigins: [
+    "http://127.0.0.1",
     "http://127.0.0.1:3000",
-    "http://localhost:3000",
     "http://127.0.0.1:8000",
-    "http://localhost:8000"
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://192.168.1.2:3000"
   ],
   outputFileTracingRoot,
   reactStrictMode: true,
