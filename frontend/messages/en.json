@@ -130,6 +130,8 @@
     "result": {
       "title": "Result and Treatment",
       "domainLabel": "Domain:",
+      "plantLabel": "Plant",
+      "statusLabel": "Condition",
       "detected": "Detected Condition",
       "treatment": "Treatment Plan",
       "statusHealthy": "Healthy signal",
@@ -156,6 +158,41 @@
       "healthyRatio": "Healthy ratio",
       "topDisease": "Top disease",
       "noDominantDisease": "No dominant disease"
+    },
+    "sidebar": {
+      "account": "Account",
+      "menu": "Menu",
+      "home": "Home",
+      "chatbot": "Chatbot",
+      "community": "Community",
+      "communitySoon": "Community is coming soon.",
+      "logout": "Logout",
+      "role": {
+        "farmer": "Farmer",
+        "expert": "Expert",
+        "admin": "Administrator",
+        "developer": "Developer"
+      },
+      "farmer": {
+        "uploadLeaf": "Upload leaf for analysis",
+        "viewHistory": "View scan history",
+        "getAdvice": "Get treatment advice"
+      },
+      "expert": {
+        "reviewQueue": "Review pending cases",
+        "validateResults": "Validate model results",
+        "viewStats": "View accuracy stats"
+      },
+      "admin": {
+        "manageUsers": "Manage user accounts",
+        "viewMetrics": "View system metrics",
+        "systemHealth": "System health status"
+      },
+      "developer": {
+        "diagnostics": "Integration diagnostics",
+        "apiPayload": "API payload checks",
+        "releases": "Release verification"
+      }
     },
     "errors": {
       "signIn": "Sign in to run diagnostics.",

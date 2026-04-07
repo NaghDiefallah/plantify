@@ -1,13 +1,15 @@
 "use client";
 
-import {Sparkles} from "lucide-react";
+import {History} from "lucide-react";
 import {useMemo, useState} from "react";
+import {useTranslations} from "next-intl";
 
-import {ChatInterface} from "@/components/chat/chat-interface";
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
+import {ScanHistoryContent} from "@/components/scan-history/scan-history-content";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
 
-export default function ChatPage() {
+export default function ScanHistoryPage() {
+	const t = useTranslations("dashboard");
 	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
 		if (typeof window === "undefined") return false;
 		return window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true";
@@ -18,24 +20,29 @@ export default function ChatPage() {
 			{id: "scan", label: "Scan", icon: "leaf", href: "/dashboard#scan"},
 			{id: "analyze", label: "Analyze", icon: "activity", href: "/dashboard#analyze"},
 			{id: "act", label: "Act", icon: "clipboard", href: "/dashboard#act"},
-			{id: "scan-history", label: "History", icon: "history", href: "/scan-history"}
+			{id: "scan-history", label: t("history.title"), icon: "history", href: "/scan-history"}
 		];
-	}, []);
+	}, [t]);
 
 	return (
-		<div className={sidebarCollapsed ? "h-[100svh] overflow-hidden lg:pl-24" : "h-[100svh] overflow-hidden lg:pl-[22rem]"}>
+		<div className={sidebarCollapsed ? "lg:pl-24" : "lg:pl-[22rem]"}>
 			<DashboardSidebar
 				collapsed={sidebarCollapsed}
 				onCollapsedChange={setSidebarCollapsed}
 				navItems={navItems}
-				activeSection="chat"
+				activeSection="scan-history"
 			/>
 
-			<main className="flex h-[100svh] min-h-0 flex-col overflow-hidden px-4 pb-4 pt-4 md:px-6">
+			<main className="mx-auto w-full max-w-7xl px-4 pb-8 pt-4 md:px-6">
 				<header className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.75rem] border border-[var(--card-border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,245,0.9))] px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(39,39,42,0.92))]">
-					<div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-						<Sparkles className="h-3.5 w-3.5" />
-						Advisor Live
+					<div className="flex items-center gap-3">
+						<div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-sm font-semibold text-[var(--text-primary)]">
+							<History className="h-4 w-4" />
+						</div>
+						<div>
+							<p className="text-sm font-semibold text-[var(--text-primary)]">{t("history.title")}</p>
+							<p className="text-xs text-[var(--text-tertiary)]">All previous scans in one place</p>
+						</div>
 					</div>
 
 					<div className="flex items-center gap-2">
@@ -43,9 +50,7 @@ export default function ChatPage() {
 					</div>
 				</header>
 
-				<section className="min-h-0 flex-1 overflow-hidden rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-					<ChatInterface />
-				</section>
+				<ScanHistoryContent />
 			</main>
 		</div>
 	);

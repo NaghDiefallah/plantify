@@ -1,11 +1,10 @@
 ﻿"use client";
 
-import {useState, useRef, useCallback, useLayoutEffect, type TouchEvent} from "react";
+import {useState, useRef, useCallback, useLayoutEffect, useMemo, type TouchEvent, type PointerEvent} from "react";
 import {Link} from "@/i18n/navigation";
 import {motion} from "framer-motion";
 import {ArrowRight, ChevronLeft, ChevronRight, CircleUserRound} from "lucide-react";
 import {useTranslations} from "next-intl";
-import {AgriBotWidget} from "@/components/agri-bot-widget";
 
 const TESTIMONIALS = [
   {
@@ -54,17 +53,21 @@ export function VisitorLanding() {
     name,
     role: t(`teamRole${index + 1}`)
   }));
+  const teamTrack = useMemo(() => [...team, ...team, ...team], [team]);
 
   // ── team carousel ────────────────────────────────────────────────
   const [carousel, setCarousel] = useState<{idx: number; x: number; visible: number}>({
-    idx: 0,
+    idx: TEAM_NAMES.length,
     x: 0,
     visible: 3
   });
   const carouselRef = useRef<HTMLDivElement>(null);
-  const carouselIdxRef = useRef(0);
+  const carouselIdxRef = useRef(TEAM_NAMES.length);
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
+  const pointerStartXRef = useRef<number | null>(null);
+  const pointerDeltaXRef = useRef(0);
+  const draggingRef = useRef(false);
 
   const recalcCarousel = useCallback((idx: number) => {
     const el = carouselRef.current;
@@ -72,14 +75,13 @@ export function VisitorLanding() {
     const W = el.offsetWidth;
     const vis = W < 540 ? 1 : W < 900 ? 2 : 3;
     const cardW = (W - (vis - 1) * CAROUSEL_GAP) / vis;
-    const max = Math.max(0, TEAM_NAMES.length - vis);
-    const i = Math.min(Math.max(0, idx), max);
+    const i = idx;
     carouselIdxRef.current = i;
     setCarousel({idx: i, x: -(i * (cardW + CAROUSEL_GAP)), visible: vis});
   }, []);
 
   useLayoutEffect(() => {
-    recalcCarousel(0);
+    recalcCarousel(TEAM_NAMES.length);
     const el = carouselRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => recalcCarousel(carouselIdxRef.current));
@@ -87,7 +89,14 @@ export function VisitorLanding() {
     return () => ro.disconnect();
   }, [recalcCarousel]);
 
-  const maxIdx = Math.max(0, TEAM_NAMES.length - carousel.visible);
+  const normalizeCarousel = useCallback(() => {
+    const total = TEAM_NAMES.length;
+    if (carouselIdxRef.current >= total * 2) {
+      recalcCarousel(carouselIdxRef.current - total);
+    } else if (carouselIdxRef.current < total) {
+      recalcCarousel(carouselIdxRef.current + total);
+    }
+  }, [recalcCarousel]);
 
   const onTeamTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
     touchStartXRef.current = event.touches[0]?.clientX ?? null;
@@ -118,13 +127,55 @@ export function VisitorLanding() {
     touchStartXRef.current = null;
     touchDeltaXRef.current = 0;
   }, [recalcCarousel]);
+
+  const onTeamPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    draggingRef.current = true;
+    pointerStartXRef.current = event.clientX;
+    pointerDeltaXRef.current = 0;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const onTeamPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse") return;
+    if (!draggingRef.current || pointerStartXRef.current === null) return;
+    pointerDeltaXRef.current = event.clientX - pointerStartXRef.current;
+  }, []);
+
+  const onTeamPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse") return;
+    if (!draggingRef.current) return;
+    const delta = pointerDeltaXRef.current;
+    if (Math.abs(delta) >= SWIPE_THRESHOLD) {
+      if (delta < 0) {
+        recalcCarousel(carouselIdxRef.current + 1);
+      } else {
+        recalcCarousel(carouselIdxRef.current - 1);
+      }
+    }
+
+    draggingRef.current = false;
+    pointerStartXRef.current = null;
+    pointerDeltaXRef.current = 0;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, [recalcCarousel]);
   // ─────────────────────────────────────────────────────────────────
 
   return (
     <main className="relative mx-auto max-w-7xl px-6 pb-14 pt-16 md:px-8 md:pt-20">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-[-12rem] top-0 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute bottom-16 right-[-10rem] h-72 w-72 rounded-full bg-zinc-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <motion.div
+          className="absolute left-[-12rem] top-0 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl"
+          animate={{y: [0, -18, 0], x: [0, 10, 0]}}
+          transition={{duration: 8, repeat: Infinity, ease: "easeInOut"}}
+        />
+        <motion.div
+          className="absolute bottom-16 right-[-10rem] h-72 w-72 rounded-full bg-zinc-500/10 blur-3xl"
+          animate={{y: [0, 16, 0], x: [0, -12, 0]}}
+          transition={{duration: 9, repeat: Infinity, ease: "easeInOut"}}
+        />
       </div>
 
       <section className="mx-auto max-w-3xl text-center">
@@ -163,13 +214,18 @@ export function VisitorLanding() {
           transition={{duration: 0.35, delay: 0.2}}
           className="mt-9 flex flex-wrap items-center justify-center gap-3"
         >
-            <Link
+            <motion.div
+              animate={{y: [0, -3, 0]}}
+              transition={{duration: 2.4, repeat: Infinity, ease: "easeInOut"}}
+            >
+              <Link
               href="/dashboard"
               className="inline-flex h-11 items-center rounded-lg bg-[#22c55e] px-5 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
             >
               {t("ctaPrimary")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
+            </motion.div>
           </motion.div>
       </section>
 
@@ -189,6 +245,7 @@ export function VisitorLanding() {
               whileInView="show"
               viewport={{once: true, amount: 0.25}}
               transition={{duration: 0.35, delay: index * 0.06}}
+              whileHover={{y: -4, scale: 1.01}}
               className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
             >
               <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">{point.title}</h3>
@@ -231,17 +288,15 @@ export function VisitorLanding() {
           <div className="flex items-center gap-2 mt-1 shrink-0">
             <button
               onClick={() => recalcCarousel(carousel.idx - 1)}
-              disabled={carousel.idx === 0}
               aria-label="Previous team members"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)]"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => recalcCarousel(carousel.idx + 1)}
-              disabled={carousel.idx >= maxIdx}
               aria-label="Next team members"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)]"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -254,16 +309,21 @@ export function VisitorLanding() {
           onTouchStart={onTeamTouchStart}
           onTouchMove={onTeamTouchMove}
           onTouchEnd={onTeamTouchEnd}
+          onPointerDown={onTeamPointerDown}
+          onPointerMove={onTeamPointerMove}
+          onPointerUp={onTeamPointerUp}
+          onPointerCancel={onTeamPointerUp}
         >
           <motion.div
             className="flex w-full"
             style={{gap: `${CAROUSEL_GAP}px`}}
             animate={{x: carousel.x}}
             transition={{type: "spring", stiffness: 280, damping: 28, mass: 0.8}}
+            onAnimationComplete={normalizeCarousel}
           >
-            {team.map((member) => (
+            {teamTrack.map((member, index) => (
               <article
-                key={member.name}
+                key={`${member.name}-${index}`}
                 className="flex-shrink-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
                 style={{width: `calc((100% - ${(carousel.visible - 1) * CAROUSEL_GAP}px) / ${carousel.visible})`}}
               >
@@ -278,7 +338,6 @@ export function VisitorLanding() {
         </div>
       </section>
 
-      <AgriBotWidget position="bottom-right" />
     </main>
   );
 }

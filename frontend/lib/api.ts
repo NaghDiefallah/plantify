@@ -17,6 +17,9 @@ const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
 export const AUTH_STATE_CHANGED_EVENT = "plantify-auth-state-changed";
 
+const REQUEST_TIMEOUT_MS = 15000;
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
 let activeApiBase = API_BASE;
 const APP_STAGE = process.env.NEXT_PUBLIC_APP_STAGE?.trim() || process.env.NODE_ENV || "development";
 const IS_RELEASE_BUILD = APP_STAGE === "production" || APP_STAGE === "release";
@@ -49,6 +52,7 @@ export function clearStoredTokens(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   clearStoredRole();
+  clearProfileCache();
   emitAuthStateChanged();
 }
 
@@ -86,13 +90,26 @@ function generateRequestId(): string {
   return `fe-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Profile fetch cache – prevents duplicate /users/me calls from React Strict
+// Mode double-invocation and repeated component mounts during navigation.
+// ---------------------------------------------------------------------------
+const PROFILE_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+let _profileCache: { token: string; profile: UserProfile; expiresAt: number } | null = null;
+const _inflightProfile = new Map<string, Promise<UserProfile>>();
+
+function clearProfileCache(): void {
+  _profileCache = null;
+  _inflightProfile.clear();
+}
+
 function getPersistedApiBase(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY)?.trim();
-  if (!stored) {
+  if (!stored || !isSafeApiBase(stored)) {
     return null;
   }
 
@@ -100,7 +117,7 @@ function getPersistedApiBase(): string | null {
 }
 
 function setPersistedApiBase(base: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !isSafeApiBase(base)) {
     return;
   }
 
@@ -128,6 +145,50 @@ function isLocalLikeApiBase(base: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isSafeApiBase(base: string): boolean {
+  try {
+    const parsed = new URL(base);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
+function timeoutSignal(timeoutMs: number, externalSignal?: AbortSignal): AbortSignal {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(new DOMException("Request timeout", "TimeoutError")), timeoutMs);
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener(
+        "abort",
+        () => {
+          controller.abort(externalSignal.reason);
+        },
+        {once: true}
+      );
+    }
+  }
+
+  controller.signal.addEventListener(
+    "abort",
+    () => {
+      globalThis.clearTimeout(timeoutId);
+    },
+    {once: true}
+  );
+
+  return controller.signal;
 }
 
 function getApiBaseCandidates(originalBase: string): string[] {
@@ -192,6 +253,23 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
     headers.set("X-Request-ID", generateRequestId());
   }
 
+  const fetchWithPolicies = async (target: RequestInfo | URL): Promise<Response> => {
+    const signal = timeoutSignal(REQUEST_TIMEOUT_MS, init?.signal ?? undefined);
+    const requestInit: RequestInit = {
+      ...init,
+      headers,
+      signal,
+      cache: init?.cache ?? "no-store"
+    };
+
+    let response = await fetch(target, requestInit);
+    if (RETRYABLE_STATUS.has(response.status) && (init?.method ?? "GET").toUpperCase() === "GET") {
+      await sleep(250);
+      response = await fetch(target, requestInit);
+    }
+    return response;
+  };
+
   const originalUrl = toUrlString(input);
   const candidates = getApiBaseCandidates(API_BASE);
   const preferredBase = candidates[0] ?? API_BASE;
@@ -199,7 +277,7 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
   const firstInput: RequestInfo | URL = firstUrl ?? input;
 
   try {
-    const response = await fetch(firstInput, { ...init, headers });
+    const response = await fetchWithPolicies(firstInput);
     if (originalUrl && firstUrl && firstUrl !== originalUrl) {
       rememberWorkingApiBase(preferredBase);
     }
@@ -216,7 +294,7 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
       }
 
       try {
-        const response = await fetch(nextUrl, {...init, headers});
+        const response = await fetchWithPolicies(nextUrl);
         rememberWorkingApiBase(candidateBase);
         return response;
       } catch {
@@ -373,20 +451,40 @@ async function readErrorMessage(response: Response, fallbackMessage: string): Pr
 }
 
 export async function fetchProfile(token: string): Promise<UserProfile> {
-  const res = await authFetch(async (authToken) =>
-    apiFetch(`${API_BASE}/users/me`, {
-      headers: {
-        ...authHeaders(authToken)
-      }
-    }),
-    token
-  );
-
-  if (!res.ok) {
-    await handleApiError(res, "users/me", "Unauthorized");
+  // Return valid cached profile immediately.
+  if (_profileCache && _profileCache.token === token && Date.now() < _profileCache.expiresAt) {
+    return _profileCache.profile;
   }
 
-  return res.json() as Promise<UserProfile>;
+  // Deduplicate concurrent requests for the same token (React Strict Mode fires
+  // effects twice in development, which would otherwise send two identical requests).
+  const inflight = _inflightProfile.get(token);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    try {
+      const res = await authFetch(
+        async (authToken) =>
+          apiFetch(`${API_BASE}/users/me`, {
+            headers: { ...authHeaders(authToken) }
+          }),
+        token
+      );
+
+      if (!res.ok) {
+        await handleApiError(res, "users/me", "Unauthorized");
+      }
+
+      const profile = (await res.json()) as UserProfile;
+      _profileCache = { token, profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
+      return profile;
+    } finally {
+      _inflightProfile.delete(token);
+    }
+  })();
+
+  _inflightProfile.set(token, request);
+  return request;
 }
 
 export async function fetchUsers(token: string): Promise<UserProfile[]> {

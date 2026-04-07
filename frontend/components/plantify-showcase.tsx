@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SonarPulse } from "@/components/sonar-pulse";
 import { ThemeLanguageSwitcher } from "@/components/theme-language-switcher";
-import { AgriBotWidget } from "@/components/agri-bot-widget";
 import { 
   Leaf, 
   Zap, 
@@ -318,13 +317,6 @@ export function PlantifyShowcase() {
         </motion.div>
       </section>
 
-      {/* Floating Chatbot Widget */}
-      <AgriBotWidget
-        scanContext={{
-          disease_name: selectedDisease,
-          confidence: 0.92,
-        }}
-      />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 export interface DetectionResult {
   disease_type: string;
+  plant_name: string;
+  disease: string;
   confidence_score: number;
   treatment_recommendations: string;
   domain: string;
@@ -11,6 +13,8 @@ export interface DetectionResult {
 export interface ScanHistory {
   id: string;
   disease_type: string;
+  plant_name: string;
+  disease: string;
   confidence_score: number;
   recommendation: string;
   domain: string;

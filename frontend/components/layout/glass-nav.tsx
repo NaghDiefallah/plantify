@@ -2,6 +2,7 @@
 
 import {useTranslations} from "next-intl";
 import {useEffect, useState} from "react";
+import {usePathname} from "next/navigation";
 
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
@@ -10,7 +11,9 @@ import {AUTH_STATE_CHANGED_EVENT, getStoredAccessToken} from "@/lib/api";
 
 export function GlassNav() {
   const t = useTranslations("nav");
+  const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const isDashboardPage = pathname.includes("/dashboard");
 
   useEffect(() => {
     const syncAuth = () => {
@@ -26,6 +29,10 @@ export function GlassNav() {
     };
   }, []);
 
+  if (isDashboardPage) {
+    return null;
+  }
+
   const links = [
     {label: t("home"), href: "/"},
     {label: t("mission"), href: "/#mission"},
@@ -34,7 +41,7 @@ export function GlassNav() {
   ];
 
   return (
-    <header className="sticky top-4 z-50 px-4 md:px-6">
+    <header className="sticky top-3 z-50 px-4 md:px-6">
       <nav className="glass-nav mx-auto flex w-full max-w-7xl items-center justify-between rounded-2xl px-4 py-3 md:px-6">
         <Link
           href="/"
@@ -65,11 +72,7 @@ export function GlassNav() {
             >
               {t("dashboard")}
             </Link>
-          ) : (
-            <Link href="/login" className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-              {t("login")}
-            </Link>
-          )}
+          ) : null}
         </div>
       </nav>
     </header>

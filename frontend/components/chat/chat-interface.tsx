@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Globe } from "lucide-react";
-import { useRouter } from "@/i18n/navigation";
 import { getApiUrl } from "@/lib/platform";
+
+const STARTER_PROMPTS = [
+  "What does this leaf pattern usually mean?",
+  "How should I treat early blight this week?",
+  "What should I monitor after spraying?"
+];
 
 export interface ChatMessage {
   id: string;
@@ -18,9 +22,7 @@ export interface ChatMessage {
 export function ChatInterface() {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const router = useRouter();
   const isRTL = locale === "ar";
-  const localeStorageKey = "plantify.locale";
   const chatStreamUrl = `${getApiUrl()}/chat/stream`;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,6 +31,11 @@ export function ChatInterface() {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const applyStarterPrompt = (prompt: string) => {
+    setInput(prompt);
+    textareaRef.current?.focus();
+  };
 
   const formatChatError = (err: unknown): string => {
     if (err instanceof DOMException && err.name === "AbortError") {
@@ -157,37 +164,34 @@ export function ChatInterface() {
   };
 
   return (
-    <div className={`flex flex-col h-dvh bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header */}
-      <div className="border-b border-border/50 bg-card/50 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto w-full gap-3">
-          <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">{t("title")}</h1>
-          <button
-            onClick={() => {
-              const order = ["en", "zh", "hi", "es", "ar"];
-              const currentIndex = Math.max(0, order.indexOf(locale));
-              const nextLocale = order[(currentIndex + 1) % order.length];
-              window.localStorage.setItem(localeStorageKey, nextLocale);
-              router.push("/", { locale: nextLocale });
-            }}
-            title="Switch language"
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border/80 bg-transparent hover:bg-primary/10 transition"
-          >
-            <Globe className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
+    <div className={`flex h-full min-h-0 flex-col bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.length === 0 && (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                  {t("welcome")}
-                </h2>
-                <p className="text-muted-foreground mb-4">{t("subtitle")}</p>
+            <div className="flex min-h-full items-center justify-center py-8 text-center">
+              <div className="w-full max-w-2xl">
+                <div className="mx-auto mb-5 h-16 w-16 rounded-full border border-emerald-500/15 bg-emerald-500/10 p-4 text-emerald-600 dark:text-emerald-300">
+                  <div className="grid h-full w-full grid-cols-2 gap-1.5">
+                    <span className="rounded-full bg-current/80" />
+                    <span className="rounded-full bg-current/55" />
+                    <span className="rounded-full bg-current/55" />
+                    <span className="rounded-full bg-current/80" />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {STARTER_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => applyStarterPrompt(prompt)}
+                      className="rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground transition hover:border-emerald-500/35 hover:text-foreground"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -240,7 +244,7 @@ export function ChatInterface() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-4">
+      <div className="border-t border-border/50 bg-card/50 px-3 py-3 sm:px-6 sm:py-4">
         <div className="max-w-4xl mx-auto w-full">
           <div className="flex gap-3">
             <textarea

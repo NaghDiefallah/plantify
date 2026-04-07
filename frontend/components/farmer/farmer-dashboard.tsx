@@ -2,16 +2,17 @@
 
 import {motion} from "framer-motion";
 import {
+  AlertCircle,
   AlertTriangle,
   CheckCircle2,
   Clock3,
-  ImageIcon,
+  Info,
   Loader2,
-  Search,
   Sparkles,
-  UploadCloud
+  UploadCloud,
+  X
 } from "lucide-react";
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import Image from "next/image";
 import {useTranslations} from "next-intl";
 import {useDropzone} from "react-dropzone";
@@ -22,15 +23,22 @@ import {cn} from "@/lib/utils";
 import {compressImage} from "@/hooks/use-image-compression";
 import {
   detectPlant,
-  fetchHistory,
   fetchStats,
   getStoredAccessToken
 } from "@/lib/api";
-import type {DetectionResult, ScanHistory} from "@/lib/types";
+import type {DetectionResult} from "@/lib/types";
 
 function createPreview(file: File | null): string | null {
   return file ? URL.createObjectURL(file) : null;
 }
+
+type NoticeKind = "error" | "success" | "info";
+
+type Notice = {
+  id: number;
+  kind: NoticeKind;
+  message: string;
+};
 
 function parseTreatmentSections(text: string | null | undefined) {
   const fallback = {
@@ -81,45 +89,24 @@ function ConfidenceBar({label, value}: {label: string; value: number}) {
   );
 }
 
-function HistoryImage({row}: {row: ScanHistory}) {
-  const imageSrc = row.before_image_b64 ? `data:image/jpeg;base64,${row.before_image_b64}` : null;
-
-  if (imageSrc) {
-    return (
-      <Image
-        src={imageSrc}
-        alt="Scan thumbnail"
-        width={160}
-        height={96}
-        unoptimized
-        className="h-full w-full object-cover"
-      />
-    );
-  }
-
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-tertiary)]">
-      <ImageIcon className="h-4 w-4" />
-    </div>
-  );
-}
-
 export function FarmerDashboard() {
   const t = useTranslations("dashboard");
   const queryClient = useQueryClient();
   const token = getStoredAccessToken();
 
-  const [query, setQuery] = useState("");
   const [original, setOriginal] = useState<File | null>(null);
   const [result, setResult] = useState<DetectionResult | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+
+  const pushNotice = (kind: NoticeKind, message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 10000);
+    setNotices((prev) => [...prev, {id, kind, message}]);
+    window.setTimeout(() => {
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+    }, 4500);
+  };
 
   const previewUrl = useMemo(() => createPreview(original), [original]);
-
-  const historyQuery = useQuery({
-    queryKey: ["history"],
-    queryFn: () => fetchHistory(token ?? ""),
-    enabled: Boolean(token)
-  });
 
   const statsQuery = useQuery({
     queryKey: ["stats"],
@@ -145,10 +132,22 @@ export function FarmerDashboard() {
     },
     onSuccess: (payload) => {
       setResult(payload);
+      pushNotice("success", `${payload.plant_name}: ${payload.disease}`);
       void queryClient.invalidateQueries({queryKey: ["history"]});
       void queryClient.invalidateQueries({queryKey: ["stats"]});
     }
   });
+
+  useEffect(() => {
+    if (!detectMutation.error) return;
+    pushNotice("error", detectMutation.error instanceof Error ? detectMutation.error.message : t("errors.scan"));
+  }, [detectMutation.error, t]);
+
+  useEffect(() => {
+    if (statsQuery.error) {
+      pushNotice("error", statsQuery.error instanceof Error ? statsQuery.error.message : t("errors.scan"));
+    }
+  }, [statsQuery.error, t]);
 
   const zone = useDropzone({
     multiple: false,
@@ -157,14 +156,12 @@ export function FarmerDashboard() {
       "image/png": [".png"],
       "image/webp": [".webp"]
     },
-    onDrop: (accepted) => setOriginal(accepted[0] ?? null)
-  });
-
-  const rows: ScanHistory[] = historyQuery.data ?? [];
-  const sortedRows = [...rows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  const filteredRows = sortedRows.filter((row) => {
-    const haystack = `${row.disease_type} ${row.domain}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
+    onDrop: (accepted) => {
+      setOriginal(accepted[0] ?? null);
+      if (accepted[0]) {
+        pushNotice("info", "Image ready for scanning.");
+      }
+    }
   });
 
   const confidence = (result?.confidence_score ?? 0) * 100;
@@ -176,6 +173,38 @@ export function FarmerDashboard() {
     : previewUrl;
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">
+      {notices.length > 0 ? (
+        <div className="fixed right-4 top-4 z-[70] flex w-[min(90vw,24rem)] flex-col gap-2">
+          {notices.map((notice) => {
+            const tone =
+              notice.kind === "error"
+                ? "border-red-300/70 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+                : notice.kind === "success"
+                  ? "border-emerald-300/70 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+                  : "border-sky-300/70 bg-sky-50 text-sky-800 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200";
+
+            const Icon = notice.kind === "error" ? AlertCircle : notice.kind === "success" ? CheckCircle2 : Info;
+
+            return (
+              <div key={notice.id} className={cn("rounded-xl border px-3 py-2 shadow-lg backdrop-blur", tone)}>
+                <div className="flex items-start gap-2">
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-sm leading-5">{notice.message}</p>
+                  <button
+                    type="button"
+                    onClick={() => setNotices((prev) => prev.filter((n) => n.id !== notice.id))}
+                    className="ml-auto rounded p-1 opacity-70 transition hover:opacity-100"
+                    aria-label="Dismiss notification"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       <section className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("eyebrow")}</p>
@@ -184,7 +213,7 @@ export function FarmerDashboard() {
         <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto lg:min-w-[30rem]">
           <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
             <p className="text-xs text-[var(--text-tertiary)]">{t("snapshot.totalScans")}</p>
-            <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{statsQuery.data?.total_scans ?? rows.length}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{statsQuery.data?.total_scans ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
             <p className="text-xs text-[var(--text-tertiary)]">{t("snapshot.healthyRatio")}</p>
@@ -198,9 +227,9 @@ export function FarmerDashboard() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+          <section id="scan" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("scanIntake.title")}</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Scan</h3>
             <span className="text-xs text-[var(--text-tertiary)]">
               {detectMutation.isPending ? t("scanIntake.statusProcessing") : original ? t("scanIntake.statusReady") : t("scanIntake.statusWaiting")}
             </span>
@@ -258,50 +287,71 @@ export function FarmerDashboard() {
             )}
           </Button>
 
-          {detectMutation.error ? (
-            <p className="mt-3 rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-2 text-sm text-[#ef4444]">
-              {detectMutation.error instanceof Error ? detectMutation.error.message : t("errors.scan")}
-            </p>
-          ) : null}
         </section>
+          <section id="analyze" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Analyze</h3>
+              {result ? <span className="text-xs text-[var(--text-tertiary)]">{t("result.domainLabel")} {result.domain}</span> : null}
+            </div>
 
-        <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("result.title")}</h3>
-            {result ? <span className="text-xs text-[var(--text-tertiary)]">{t("result.domainLabel")} {result.domain}</span> : null}
-          </div>
-
-          {result ? (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
-                {beforeSrc ? (
-                  <Image
-                    src={beforeSrc}
-                    alt="Scan source"
-                    width={1200}
-                    height={448}
-                    unoptimized
-                    className="h-56 w-full object-cover"
-                  />
-                ) : null}
-              </div>
-
-              <div className="rounded-2xl border border-[var(--card-border)] p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-semibold text-[var(--text-primary)]">{result.disease_type}</p>
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-                    isHealthy ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                  )}>
-                    {isHealthy ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : <AlertTriangle className="mr-1 h-3.5 w-3.5" />}
-                    {isHealthy ? t("result.statusHealthy") : t("result.statusAttention")}
-                  </span>
+            {result ? (
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
+                  {beforeSrc ? (
+                    <Image
+                      src={beforeSrc}
+                      alt="Scan source"
+                      width={1200}
+                      height={448}
+                      unoptimized
+                      className="h-56 w-full object-cover"
+                    />
+                  ) : null}
                 </div>
-                <div className="mt-4">
-                  <ConfidenceBar label={t("result.metrics.modelConfidence")} value={confidence} />
-                </div>
-              </div>
 
+                <div className="rounded-2xl border border-[var(--card-border)] p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div>
+                      <p className="text-xs text-[var(--text-tertiary)]">{t("result.plantLabel")}</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">{result.plant_name}</p>
+                    </div>
+                    <div className="hidden sm:block sm:border-l sm:border-[var(--card-border)] sm:pl-4">
+                      <p className="text-xs text-[var(--text-tertiary)]">{t("result.statusLabel")}</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">{result.disease}</p>
+                    </div>
+                    <span className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+                      isHealthy ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    )}>
+                      {isHealthy ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : <AlertTriangle className="mr-1 h-3.5 w-3.5" />}
+                      {isHealthy ? t("result.statusHealthy") : t("result.statusAttention")}
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <ConfidenceBar label={t("result.metrics.modelConfidence")} value={confidence} />
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
+                <Clock3 className="h-7 w-7 text-[var(--text-tertiary)]" />
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">Run a scan to generate analysis details.</p>
+              </div>
+            )}
+          </section>
+
+          <section id="act" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Act</h3>
+              {result ? (
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
+                  Treatment plan
+                </span>
+              ) : null}
+            </div>
+
+            {result ? (
               <div className="grid gap-3">
                 <div className="rounded-2xl border border-[var(--card-border)] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{t("result.immediate")}</p>
@@ -316,58 +366,15 @@ export function FarmerDashboard() {
                   <p className="mt-2 text-sm text-[var(--text-secondary)]">{treatment.monitor}</p>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
-              <Clock3 className="h-7 w-7 text-[var(--text-tertiary)]" />
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("result.empty")}</p>
-            </div>
-          )}
-        </section>
+            ) : (
+              <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
+                <Sparkles className="h-7 w-7 text-[var(--text-tertiary)]" />
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">Treatment guidance appears here after analysis completes.</p>
+              </div>
+            )}
+          </section>
       </div>
 
-      <section className="mt-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("history.title")}</h3>
-          <label className="relative w-full max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("history.searchPlaceholder")}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
-            />
-          </label>
-        </div>
-
-        <div className="space-y-3">
-          {historyQuery.isLoading ? (
-            <p className="text-sm text-[var(--text-secondary)]">{t("history.loading")}</p>
-          ) : filteredRows.length === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">{t("history.empty")}</p>
-          ) : (
-            filteredRows.slice(0, 12).map((row) => (
-              <div key={row.id} className="grid gap-3 rounded-2xl border border-[var(--card-border)] p-3 md:grid-cols-[112px_1fr_auto] md:items-center">
-                <div className="h-24 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--bg-secondary)]">
-                  <HistoryImage row={row} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{row.disease_type}</p>
-                    <span className="text-xs uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{row.domain}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[var(--text-tertiary)]">{new Date(row.created_at).toLocaleString()}</p>
-                  <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">{row.recommendation}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{(row.confidence_score * 100).toFixed(1)}%</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
     </main>
   );
 }

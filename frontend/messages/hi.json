@@ -130,6 +130,8 @@
     "result": {
       "title": "परिणाम और उपचार",
       "domainLabel": "डोमेन:",
+      "plantLabel": "पौधा",
+      "statusLabel": "स्थिति",
       "detected": "पता चली स्थिति",
       "treatment": "उपचार योजना",
       "statusHealthy": "स्वस्थ संकेत",
@@ -156,6 +158,37 @@
       "healthyRatio": "स्वस्थ अनुपात",
       "topDisease": "शीर्ष रोग",
       "noDominantDisease": "कोई प्रमुख रोग नहीं"
+    },
+    "sidebar": {
+      "account": "खाता",
+      "quickActions": "त्वरित कार्य",
+      "logout": "लॉग आउट",
+      "role": {
+        "farmer": "किसान",
+        "expert": "विशेषज्ञ",
+        "admin": "प्रशासक",
+        "developer": "डेवलपर"
+      },
+      "farmer": {
+        "uploadLeaf": "विश्लेषण हेतु पत्ती अपलोड करें",
+        "viewHistory": "स्कैन इतिहास देखें",
+        "getAdvice": "उपचार सलाह प्राप्त करें"
+      },
+      "expert": {
+        "reviewQueue": "लंबित मामलों की समीक्षा करें",
+        "validateResults": "मॉडल परिणाम सत्यापित करें",
+        "viewStats": "सटीकता आँकड़े देखें"
+      },
+      "admin": {
+        "manageUsers": "उपयोगकर्ता खाते प्रबंधित करें",
+        "viewMetrics": "सिस्टम मेट्रिक्स देखें",
+        "systemHealth": "सिस्टम स्वास्थ्य स्थिति"
+      },
+      "developer": {
+        "diagnostics": "इंटीग्रेशन डायग्नोस्टिक्स",
+        "apiPayload": "API पेलोड जांच",
+        "releases": "रिलीज सत्यापन"
+      }
     },
     "errors": {
       "signIn": "डायग्नोस्टिक्स चलाने के लिए साइन इन करें।",

@@ -130,6 +130,8 @@
     "result": {
       "title": "النتيجة والعلاج",
       "domainLabel": "النطاق:",
+      "plantLabel": "النبات",
+      "statusLabel": "الحالة",
       "detected": "الحالة المكتشفة",
       "treatment": "خطة العلاج",
       "statusHealthy": "إشارة سليمة",
@@ -156,6 +158,41 @@
       "healthyRatio": "نسبة السليم",
       "topDisease": "أعلى مرض",
       "noDominantDisease": "لا يوجد مرض مهيمن"
+    },
+    "sidebar": {
+      "account": "الحساب",
+      "menu": "القائمة",
+      "home": "الرئيسية",
+      "chatbot": "المساعد",
+      "community": "المجتمع",
+      "communitySoon": "قسم المجتمع قريباً.",
+      "logout": "تسجيل الخروج",
+      "role": {
+        "farmer": "مزارع",
+        "expert": "خبير",
+        "admin": "مسؤول",
+        "developer": "مطوّر"
+      },
+      "farmer": {
+        "uploadLeaf": "ارفع ورقة للتحليل",
+        "viewHistory": "عرض سجل الفحوصات",
+        "getAdvice": "الحصول على نصائح العلاج"
+      },
+      "expert": {
+        "reviewQueue": "مراجعة الحالات المعلقة",
+        "validateResults": "التحقق من نتائج النموذج",
+        "viewStats": "عرض إحصاءات الدقة"
+      },
+      "admin": {
+        "manageUsers": "إدارة حسابات المستخدمين",
+        "viewMetrics": "عرض مؤشرات النظام",
+        "systemHealth": "حالة النظام"
+      },
+      "developer": {
+        "diagnostics": "تشخيصات التكامل",
+        "apiPayload": "فحص حمولة API",
+        "releases": "التحقق من الإصدارات"
+      }
     },
     "errors": {
       "signIn": "سجّل الدخول لتشغيل التشخيص.",

@@ -130,6 +130,8 @@
     "result": {
       "title": "Resultado y tratamiento",
       "domainLabel": "Dominio:",
+      "plantLabel": "Planta",
+      "statusLabel": "Estado",
       "detected": "Condición detectada",
       "treatment": "Plan de tratamiento",
       "statusHealthy": "Señal saludable",
@@ -156,6 +158,37 @@
       "healthyRatio": "Proporción saludable",
       "topDisease": "Enfermedad principal",
       "noDominantDisease": "Sin enfermedad dominante"
+    },
+    "sidebar": {
+      "account": "Cuenta",
+      "quickActions": "Acciones rápidas",
+      "logout": "Cerrar sesión",
+      "role": {
+        "farmer": "Agricultor",
+        "expert": "Experto",
+        "admin": "Administrador",
+        "developer": "Desarrollador"
+      },
+      "farmer": {
+        "uploadLeaf": "Subir hoja para análisis",
+        "viewHistory": "Ver historial de escaneos",
+        "getAdvice": "Obtener recomendaciones"
+      },
+      "expert": {
+        "reviewQueue": "Revisar casos pendientes",
+        "validateResults": "Validar resultados del modelo",
+        "viewStats": "Ver estadísticas de precisión"
+      },
+      "admin": {
+        "manageUsers": "Gestionar cuentas de usuarios",
+        "viewMetrics": "Ver métricas del sistema",
+        "systemHealth": "Estado del sistema"
+      },
+      "developer": {
+        "diagnostics": "Diagnósticos de integración",
+        "apiPayload": "Revisión de payload API",
+        "releases": "Verificación de versiones"
+      }
     },
     "errors": {
       "signIn": "Inicia sesión para ejecutar diagnósticos.",

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Sora } from "next/font/google";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import {NextIntlClientProvider} from "next-intl";
+import {getLocale, getMessages} from "next-intl/server";
 
 import {AppProviders} from "@/components/providers/app-providers";
-import {DefaultIntlProvider} from "@/components/providers/default-intl-provider";
+import {LocaleSync} from "@/components/ui/locale-sync";
 import "./globals.css";
 
 const sora = Sora({
@@ -24,10 +26,15 @@ export const metadata: Metadata = {
   description: "Advanced plant disease detection and treatment recommendations powered by AI"
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  const rtl = locale === "ar";
+
   return (
     <html 
-      lang="en" 
+      lang={locale}
+      dir={rtl ? "rtl" : "ltr"}
       className={`${sora.variable} ${ibmPlexArabic.variable}`} 
       suppressHydrationWarning
     >
@@ -37,9 +44,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#22c55e" />
       </head>
       <body className="antialiased">
-        <DefaultIntlProvider>
-          <AppProviders>{children}</AppProviders>
-        </DefaultIntlProvider>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
+          <AppProviders>
+            <LocaleSync />
+            {children}
+          </AppProviders>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

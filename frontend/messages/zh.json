@@ -130,6 +130,8 @@
     "result": {
       "title": "结果与处理",
       "domainLabel": "域：",
+      "plantLabel": "植物",
+      "statusLabel": "状态",
       "detected": "检测到的状态",
       "treatment": "处理方案",
       "statusHealthy": "健康信号",
@@ -156,6 +158,37 @@
       "healthyRatio": "健康占比",
       "topDisease": "高频病害",
       "noDominantDisease": "无主导病害"
+    },
+    "sidebar": {
+      "account": "账户",
+      "quickActions": "快捷操作",
+      "logout": "退出登录",
+      "role": {
+        "farmer": "农户",
+        "expert": "专家",
+        "admin": "管理员",
+        "developer": "开发者"
+      },
+      "farmer": {
+        "uploadLeaf": "上传叶片进行分析",
+        "viewHistory": "查看扫描历史",
+        "getAdvice": "获取处理建议"
+      },
+      "expert": {
+        "reviewQueue": "审核待处理案例",
+        "validateResults": "校验模型结果",
+        "viewStats": "查看准确率统计"
+      },
+      "admin": {
+        "manageUsers": "管理用户账户",
+        "viewMetrics": "查看系统指标",
+        "systemHealth": "系统健康状态"
+      },
+      "developer": {
+        "diagnostics": "集成诊断",
+        "apiPayload": "API 负载检查",
+        "releases": "发布验证"
+      }
     },
     "errors": {
       "signIn": "请先登录以运行诊断。",
