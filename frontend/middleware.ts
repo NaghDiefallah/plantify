@@ -1,9 +1,6 @@
-import createMiddleware from "next-intl/middleware";
 import {NextRequest, NextResponse} from "next/server";
 
 import {routing} from "./i18n/routing";
-
-const intlMiddleware = createMiddleware(routing);
 
 function getLocalePrefix(pathname: string): string | null {
   for (const locale of routing.locales) {
@@ -32,7 +29,7 @@ export default function middleware(request: NextRequest) {
     return response;
   }
 
-  return intlMiddleware(request);
+  return NextResponse.next();
 }
 
 export const config = {

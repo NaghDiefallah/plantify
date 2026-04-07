@@ -18,6 +18,9 @@ const connectSrc = isDev
 
 const nextConfig = {
   allowedDevOrigins: [
+    "127.0.0.1",
+    "localhost",
+    "192.168.1.2",
     "http://127.0.0.1",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
