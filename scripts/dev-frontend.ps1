@@ -40,6 +40,10 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action { Kill
 
 Set-Location (Join-Path $repoRoot 'frontend')
 
+# Prevent static-export env flags from leaking into local Next.js dev.
+if (Test-Path Env:PLATFORM_TARGET) { Remove-Item Env:PLATFORM_TARGET }
+if (Test-Path Env:NEXT_PUBLIC_STATIC_LOCALE) { Remove-Item Env:NEXT_PUBLIC_STATIC_LOCALE }
+
 try {
     bun run dev
 } finally {
