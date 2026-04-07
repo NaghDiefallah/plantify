@@ -34,6 +34,9 @@ name: Telegram Notifications
 
 on:
   workflow_run:
+        workflows:
+            - Build, Publish, and Deploy
+            - Cross-Platform Release
     types: [completed]
 
 permissions:

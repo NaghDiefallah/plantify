@@ -20,6 +20,10 @@ const nextConfig = {
   allowedDevOrigins: ["http://127.0.0.1:3000", "http://localhost:3000"],
   outputFileTracingRoot,
   reactStrictMode: true,
+  env: {
+    PLATFORM_TARGET: process.env.PLATFORM_TARGET || "",
+    NEXT_PUBLIC_STATIC_LOCALE: process.env.NEXT_PUBLIC_STATIC_LOCALE || ""
+  },
   skipTrailingSlashRedirect: isStaticExport,
   trailingSlash: isStaticExport,
   typedRoutes: false,

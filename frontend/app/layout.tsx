@@ -2,11 +2,27 @@ import type { Metadata } from "next";
 import { Sora } from "next/font/google";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import {NextIntlClientProvider} from "next-intl";
-import {getLocale, getMessages} from "next-intl/server";
+import type {AbstractIntlMessages} from "next-intl";
+import arMessages from "@/messages/ar.json";
+import enMessages from "@/messages/en.json";
+import esMessages from "@/messages/es.json";
+import hiMessages from "@/messages/hi.json";
+import zhMessages from "@/messages/zh.json";
 
 import {AppProviders} from "@/components/providers/app-providers";
 import {LocaleSync} from "@/components/ui/locale-sync";
+import {routing, type AppLocale} from "@/i18n/routing";
 import "./globals.css";
+
+const STATIC_EXPORT_LOCALE = (process.env.NEXT_PUBLIC_STATIC_LOCALE ?? routing.defaultLocale) as AppLocale;
+
+const STATIC_MESSAGES_BY_LOCALE: Record<AppLocale, AbstractIntlMessages> = {
+  en: enMessages,
+  zh: zhMessages,
+  hi: hiMessages,
+  es: esMessages,
+  ar: arMessages
+};
 
 const sora = Sora({
   subsets: ["latin", "latin-ext"],
@@ -27,8 +43,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  const locale = routing.locales.includes(STATIC_EXPORT_LOCALE) ? STATIC_EXPORT_LOCALE : routing.defaultLocale;
+  const messages = STATIC_MESSAGES_BY_LOCALE[locale];
   const rtl = locale === "ar";
 
   return (

@@ -1,4 +1,6 @@
-import {getLocale} from "next-intl/server";
+import {routing, type AppLocale} from "@/i18n/routing";
+
+const STATIC_LOCALE = (process.env.NEXT_PUBLIC_STATIC_LOCALE ?? routing.defaultLocale) as AppLocale;
 
 const contentByLocale: Record<string, {title: string; updated: string; sections: Array<{heading: string; body: string}>}> = {
   en: {
@@ -69,7 +71,7 @@ const contentByLocale: Record<string, {title: string; updated: string; sections:
 };
 
 export default async function TermsPage() {
-  const locale = await getLocale();
+  const locale = routing.locales.includes(STATIC_LOCALE) ? STATIC_LOCALE : routing.defaultLocale;
   const content = contentByLocale[locale] ?? contentByLocale.en;
 
   return (
