@@ -17,6 +17,7 @@ from app.services.recommendations import recommendation_for_label
 from app.services.rate_limiter import enforce_rate_limit
 from app.services.scan_image_store import persist_scan_image
 from app.services.upload_validation import validate_image_upload
+from app.services.label_parser import parse_disease_label
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/detect", tags=["detect"])
@@ -48,6 +49,17 @@ async def detect(
     validate_image_upload(image, image_bytes, field_name="image")
 
     prediction = ai.predict(image_bytes)
+    is_plant = bool(prediction.get("is_plant", True))
+    plant_score = float(prediction.get("plant_score", 1.0))
+    if not is_plant:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "The uploaded image does not appear to contain a plant leaf. "
+                f"Plant-likelihood score: {plant_score:.2f}. Please upload a clearer plant image."
+            ),
+        )
+
     label = prediction["label"]
     confidence = prediction["confidence"]
 
@@ -78,8 +90,11 @@ async def detect(
             validate_image_upload(segmented_image, segmented_bytes, field_name="segmented_image")
             after_b64 = base64.b64encode(segmented_bytes).decode("utf-8")
 
+    plant_name, disease = parse_disease_label(label)
     return DetectionResponse(
         disease_type=label,
+        plant_name=plant_name,
+        disease=disease,
         confidence_score=confidence,
         treatment_recommendations=recommendation,
         domain=domain,

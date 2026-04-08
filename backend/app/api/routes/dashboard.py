@@ -8,6 +8,7 @@ from app.models.scan_history import ScanHistory
 from app.models.user import User
 from app.schemas.scan import ScanHistoryResponse, StatsResponse
 from app.services.scan_image_store import load_scan_image_b64
+from app.services.label_parser import parse_disease_label
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -30,6 +31,8 @@ async def history(
         ScanHistoryResponse(
             id=row.id,
             disease_type=row.disease_type,
+            plant_name=parse_disease_label(row.disease_type)[0],
+            disease=parse_disease_label(row.disease_type)[1],
             confidence_score=row.confidence_score,
             recommendation=row.recommendation,
             domain=row.domain,

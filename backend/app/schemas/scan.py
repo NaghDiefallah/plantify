@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 class DetectionResponse(BaseModel):
     disease_type: str
+    plant_name: str
+    disease: str
     confidence_score: float
     treatment_recommendations: str
     domain: str
@@ -16,6 +18,8 @@ class DetectionResponse(BaseModel):
 class ScanHistoryResponse(BaseModel):
     id: str
     disease_type: str
+    plant_name: str
+    disease: str
     confidence_score: float
     recommendation: str
     domain: str

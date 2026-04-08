@@ -1,17 +1,18 @@
 "use client";
 
 import {Sparkles} from "lucide-react";
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 
 import {ChatInterface} from "@/components/chat/chat-interface";
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
 
 export default function ChatPage() {
-	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-		if (typeof window === "undefined") return false;
-		return window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true";
-	});
+	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+
+	useEffect(() => {
+		setSidebarCollapsed(window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true");
+	}, []);
 
 	const navItems = useMemo<DashboardNavItem[]>(() => {
 		return [

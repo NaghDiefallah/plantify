@@ -213,30 +213,13 @@ export function RoleDashboard() {
   const locale = useLocale();
   const t = useTranslations("dashboard");
   const rtl = locale === "ar";
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true";
-  });
-  // Read synchronously so the correct panel (or nothing) renders on the very first frame,
-  // eliminating the "Loading dashboard…" → redirect flash on Android.
-  const [redirecting, setRedirecting] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return !getStoredAccessToken();
-  });
-  // Use the cached role so returning users see their panel immediately.
-  const [role, setRole] = useState<UserRole | null>(() => {
-    if (typeof window === "undefined") return null;
-    return getStoredRole();
-  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [redirecting, setRedirecting] = useState<boolean>(false);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [token, setToken] = useState<string | null>(null);
-  // Only block on loading when we have no cached role to show yet.
-  // Add a minimum delay to prevent flash on Android
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return !getStoredRole();
-  });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -324,6 +307,16 @@ export function RoleDashboard() {
 
     return () => observer.disconnect();
   }, [navItems, role]);
+
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true");
+
+    const cachedRole = getStoredRole();
+    if (cachedRole) {
+      setRole(cachedRole);
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("plantify-dashboard-sidebar-collapsed", String(sidebarCollapsed));

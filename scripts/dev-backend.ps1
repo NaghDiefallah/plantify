@@ -76,6 +76,20 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action { Stop
 
 Set-Location $backendRoot
 
+# Run migrations before starting the dev server
+Write-Host "[backend] Running database migrations..."
+& $pythonExe -m alembic upgrade head
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to run database migrations"
+}
+
+# Seed metadata if empty
+Write-Host "[backend] Seeding database metadata..."
+& $pythonExe scripts/seed_db.py
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to seed database"
+}
+
 try {
     & $pythonExe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 } finally {

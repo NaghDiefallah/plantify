@@ -1,7 +1,7 @@
 "use client";
 
 import {History} from "lucide-react";
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {useTranslations} from "next-intl";
 
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
@@ -10,10 +10,11 @@ import {ThemeToggle} from "@/components/ui/theme-toggle";
 
 export default function ScanHistoryPage() {
 	const t = useTranslations("dashboard");
-	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-		if (typeof window === "undefined") return false;
-		return window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true";
-	});
+	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+
+	useEffect(() => {
+		setSidebarCollapsed(window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true");
+	}, []);
 
 	const navItems = useMemo<DashboardNavItem[]>(() => {
 		return [

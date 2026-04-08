@@ -34,9 +34,6 @@ name: Telegram Notifications
 
 on:
   workflow_run:
-    workflows:
-      - Build, Publish, and Deploy
-      - Cross-Platform Release
     types: [completed]
 
 permissions:
@@ -52,6 +49,9 @@ jobs:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    if: |
+      github.event.workflow_run.name == 'Build, Publish, and Deploy' ||
+      github.event.workflow_run.name == 'Cross-Platform Release'
 
     steps:
       - name: Validate secrets

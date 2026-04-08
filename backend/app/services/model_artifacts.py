@@ -6,7 +6,9 @@ from torchvision import models
 
 
 def build_model(arch: str, num_classes: int) -> nn.Module:
-    if "mobilenet" in arch.lower():
+    arch_lower = arch.lower()
+
+    if "mobilenet" in arch_lower:
         model = models.mobilenet_v3_large(weights=None)
         in_features = model.classifier[0].in_features
         model.classifier = nn.Sequential(
@@ -14,6 +16,15 @@ def build_model(arch: str, num_classes: int) -> nn.Module:
             nn.Hardswish(inplace=True),
             nn.Dropout(p=0.2, inplace=True),
             nn.Linear(1280, num_classes),
+        )
+        return model
+
+    if "efficientnet_b3" in arch_lower:
+        model = models.efficientnet_b3(weights=None)
+        in_features = model.classifier[1].in_features
+        model.classifier[1] = nn.Sequential(
+            nn.Dropout(p=0.3, inplace=True),
+            nn.Linear(in_features, num_classes),
         )
         return model
 

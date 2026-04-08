@@ -1,0 +1,85 @@
+name: Generate SLSA Provenance
+
+on:
+  workflow_run:
+    workflows: ["Cross-Platform Release"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  provenance:
+    name: Generate SLSA v1.0 Provenance
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate SLSA provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3@v2.0.0
+        with:
+          base64-subjects: |
+            $(find artifacts -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dmg" -o -name "*.AppImage" \) -exec sha256sum {} \; | base64 -w0)
+          upload-assets: true
+          compile-generator: true
+
+      - name: Create provenance manifest
+        run: |
+          cat > provenance-manifest.json <<'MANIFEST'
+          {
+            "slsa_version": "1.0",
+            "build_type": "https://github.com/actions/runner/blob/main/adrs/action-yml.md",
+            "builder": {
+              "id": "https://github.com/slsa-framework/slsa-github-generator"
+            },
+            "source": {
+              "uri": "${{ github.repository }}",
+              "digest": {
+                "sha256": "${{ github.sha }}"
+              }
+            },
+            "timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "invocation": {
+              "parameters": {
+                "workflow": "Cross-Platform Release",
+                "trigger": "tag",
+                "ref": "${{ github.ref }}",
+                "commit_sha": "${{ github.sha }}"
+              }
+            },
+            "materials": [
+              {
+                "uri": "git+https://github.com/${{ github.repository }}.git@${{ github.ref }}",
+                "digest": {
+                  "gitCommit": "${{ github.sha }}"
+                }
+              }
+            ],
+            "completeness": {
+              "parameters": true,
+              "environment": true,
+              "materials": true
+            }
+          }
+          MANIFEST
+
+      - name: Upload provenance documents
+        uses: actions/upload-artifact@v4
+        with:
+          name: slsa-provenance
+          path: |
+            provenance-manifest.json
+            **/*.intoto.jsonl
+          retention-days: 90
