@@ -302,12 +302,12 @@ jobs:
       - name: Detect iOS signing inputs
         id: ios_signing
         env:
-          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
-          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          IOS_BUNDLE_IDENTIFIER: ${{ secrets.IOS_BUNDLE_IDENTIFIER }}
-          IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          IOS_CERTIFICATE_P12_BASE64: ""
+          IOS_CERTIFICATE_PASSWORD: ""
+          IOS_PROVISIONING_PROFILE_BASE64: ""
+          IOS_TEAM_ID: ""
+          IOS_BUNDLE_IDENTIFIER: ""
+          IOS_PROVISIONING_PROFILE_NAME: ""
         run: |
           set -euo pipefail
           if [ -n "${IOS_CERTIFICATE_P12_BASE64:-}" ] && [ -n "${IOS_CERTIFICATE_PASSWORD:-}" ] && [ -n "${IOS_PROVISIONING_PROFILE_BASE64:-}" ] && [ -n "${IOS_TEAM_ID:-}" ] && [ -n "${IOS_BUNDLE_IDENTIFIER:-}" ] && [ -n "${IOS_PROVISIONING_PROFILE_NAME:-}" ]; then
@@ -335,9 +335,12 @@ jobs:
       - name: Import iOS signing assets
         if: ${{ steps.ios_signing.outputs.enabled == 'true' }}
         env:
-          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
-          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_CERTIFICATE_P12_BASE64: ""
+          IOS_CERTIFICATE_PASSWORD: ""
+          IOS_PROVISIONING_PROFILE_BASE64: ""
+          IOS_TEAM_ID: ""
+          IOS_BUNDLE_IDENTIFIER: ""
+          IOS_PROVISIONING_PROFILE_NAME: ""
         run: |
           security create-keychain -p "$RUNNER_TEMP/plantify" build.keychain
           security default-keychain -s build.keychain
@@ -355,6 +358,10 @@ jobs:
 
       - name: Write export options
         if: ${{ steps.ios_signing.outputs.enabled == 'true' }}
+        env:
+          IOS_TEAM_ID: ""
+          IOS_BUNDLE_IDENTIFIER: ""
+          IOS_PROVISIONING_PROFILE_NAME: ""
         run: |
           cat <<EOF > "$RUNNER_TEMP/ExportOptions.plist"
           <?xml version="1.0" encoding="UTF-8"?>
@@ -366,11 +373,11 @@ jobs:
             <key>signingStyle</key>
             <string>manual</string>
             <key>teamID</key>
-            <string>${{ secrets.IOS_TEAM_ID }}</string>
+            <string>${IOS_TEAM_ID}</string>
             <key>provisioningProfiles</key>
             <dict>
-              <key>${{ secrets.IOS_BUNDLE_IDENTIFIER }}</key>
-              <string>${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}</string>
+              <key>${IOS_BUNDLE_IDENTIFIER}</key>
+              <string>${IOS_PROVISIONING_PROFILE_NAME}</string>
             </dict>
           </dict>
           </plist>
@@ -379,6 +386,9 @@ jobs:
       - name: Archive iOS app
         if: ${{ steps.ios_signing.outputs.enabled == 'true' }}
         working-directory: ${{ env.FRONTEND_DIR }}/ios/App
+        env:
+          IOS_TEAM_ID: ""
+          IOS_BUNDLE_IDENTIFIER: ""
         run: |
           xcodebuild \
             -workspace App.xcworkspace \
@@ -386,8 +396,8 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath "$RUNNER_TEMP/Plantify.xcarchive" \
-            DEVELOPMENT_TEAM="${{ secrets.IOS_TEAM_ID }}" \
-            PRODUCT_BUNDLE_IDENTIFIER="${{ secrets.IOS_BUNDLE_IDENTIFIER }}" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$IOS_BUNDLE_IDENTIFIER" \
             archive
 
       - name: Export IPA
@@ -621,24 +631,6 @@ jobs:
           wc -l checksums.txt
           cat checksums.txt
 
-      - name: Sign release artifacts
-        if: env.GPG_PRIVATE_KEY != ''
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-        working-directory: release-assets
-        run: |
-          # Import GPG key
-          echo "$GPG_PRIVATE_KEY" | gpg --import --batch --yes
-          
-          # Sign checksums file
-          gpg --detach-sign --armor \
-            --default-key "$GPG_KEY_ID" \
-            checksums.txt
-          
-          echo "✅ Checksums signed with GPG"
-          ls -lh checksums.txt*
-
       - name: Generate auto release notes
         id: release_notes
         run: |
@@ -712,8 +704,8 @@ jobs:
             | Platform | Architectures | Format |
             |----------|---------------|--------|
             | **Android** | arm64-v8a, armeabi-v7a, x86, x86_64 | APK (universal) + AAB (Play Store) |
-            | **iOS** | arm64 | IPA (device + simulator) |
-            | **macOS** | x86_64, arm64 | DMG (universal) |
+            | **iOS** | arm64 | IPA (only when iOS signing secrets are configured) |
+            | **macOS** | x86_64, arm64 | DMG (platform build; notarization optional) |
             | **Windows** | x86_64, x86 | MSI + Portable EXE |
             | **Linux** | x86_64, x86 | AppImage, deb, rpm |
             
