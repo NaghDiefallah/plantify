@@ -187,6 +187,8 @@ Current deployment and governance workflow coverage includes:
 
 See `DEPLOYMENT_GUIDE.md`, `ENV_CONFIGURATION.md`, and `ROADMAP.md` for operational detail.
 
+For push-only operations (no manual tagging or release commands), see `ZERO_TOUCH_AUTOMATION.md`.
+
 ## Database and Model Governance
 
 - Alembic migrations live under `backend/alembic/versions/`.

@@ -12,6 +12,8 @@ permissions:
 env:
   NODE_VERSION: "20"
   JAVA_VERSION: "21"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: plantify
   FRONTEND_DIR: frontend
   NEXT_PUBLIC_APP_STAGE: production
   NEXT_PUBLIC_PRODUCTION_API_URL: ${{ secrets.NEXT_PUBLIC_PRODUCTION_API_URL || 'https://plantify.limarise.com/api' }}
@@ -619,6 +621,24 @@ jobs:
           wc -l checksums.txt
           cat checksums.txt
 
+      - name: Sign release artifacts
+        if: env.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+        working-directory: release-assets
+        run: |
+          # Import GPG key
+          echo "$GPG_PRIVATE_KEY" | gpg --import --batch --yes
+          
+          # Sign checksums file
+          gpg --detach-sign --armor \
+            --default-key "$GPG_KEY_ID" \
+            checksums.txt
+          
+          echo "✅ Checksums signed with GPG"
+          ls -lh checksums.txt*
+
       - name: Generate auto release notes
         id: release_notes
         run: |
@@ -709,12 +729,27 @@ jobs:
             
             All binaries are **signed** and **checksummed**. Verify integrity:
             
+            ### Option 1: SHA256 Checksum (Quick)
             ```bash
             # Download checksums.txt from assets
             sha256sum --check checksums.txt
             ```
             
-            **Release Candidate**: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') && '✓ Pre-release build' || '✓ Stable release' }}
+            ### Option 2: GPG Signature (Secure, when available)
+            ```bash
+            # Download checksums.txt and checksums.txt.asc from assets (if .asc exists)
+            # Import Plantify release key (if not already imported)
+            curl -s https://raw.githubusercontent.com/naghdiefallah/plantify/main/config/plantify-release.asc | gpg --import
+            
+            # Verify GPG signature
+            gpg --verify checksums.txt.asc checksums.txt
+            # Should output: Good signature from "Plantify Release" <release@plantify.example.com>
+            
+            # Then verify checksums
+            sha256sum --check checksums.txt
+            ```
+            
+            **Release Type**: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') && '🚀 Pre-release (alpha/beta/rc)' || '✅ Stable Release' }}
             
             ---
             

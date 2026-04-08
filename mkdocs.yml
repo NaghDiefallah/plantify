@@ -83,6 +83,9 @@ nav:
     - All Releases: releases/index.md
     - Release Process: releases/process.md
     - Changelog: releases/changelog.md
+  - Security:
+    - Security Policy: ../SECURITY.md
+    - Verification Guide: security/verification.md
   - Contributing:
     - Contributing Guide: contributing/guide.md
     - Development Setup: contributing/setup.md

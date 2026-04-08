@@ -1,0 +1,903 @@
+# ════════════════════════════════════════════════════════════════════
+# 📬 Universal CI/CD Notifier — Multi-Platform
+# ════════════════════════════════════════════════════════════════════
+#
+# ➤ Drop into any repo:  .github/workflows/notify.yml
+# ➤ Configure secrets for whichever platforms you use. Done.
+# ➤ Fires after EVERY completed workflow. Per-job breakdown.
+# ➤ Platforms auto-detect: if secrets exist → send. No editing.
+#
+# ┌────────────────────────────────────────────────────────────────┐
+# │  PLATFORM SECRETS  (set only the ones you need)               │
+# ├────────────────────────────────────────────────────────────────┤
+# │                                                                │
+# │  Telegram ─────────────────────────────────────────────────── │
+# │    TELEGRAM_BOT_TOKEN        Bot token from @BotFather         │
+# │    TELEGRAM_CHAT_ID          Chat / group / channel ID         │
+# │                                                                │
+# │  Discord ──────────────────────────────────────────────────── │
+# │    DISCORD_WEBHOOK_URL       Webhook URL from channel settings │
+# │                                                                │
+# │  Slack ────────────────────────────────────────────────────── │
+# │    SLACK_WEBHOOK_URL         Incoming Webhook URL              │
+# │                                                                │
+# │  Microsoft Teams ──────────────────────────────────────────── │
+# │    TEAMS_WEBHOOK_URL         Incoming Webhook / Workflow URL   │
+# │                                                                │
+# │  Pumble ───────────────────────────────────────────────────── │
+# │    PUMBLE_WEBHOOK_URL        Incoming Webhook URL              │
+# │                                                                │
+# │  Ntfy (ntfy.sh or self-hosted) ────────────────────────────── │
+# │    NTFY_TOPIC                Topic name (e.g. "my-ci-alerts") │
+# │    NTFY_SERVER               (optional) Self-hosted URL       │
+# │                                (default: https://ntfy.sh)     │
+# │                                                                │
+# │  Google Chat ──────────────────────────────────────────────── │
+# │    GOOGLE_CHAT_WEBHOOK_URL   Webhook URL from Chat space      │
+# │                                                                │
+# │  Generic Webhook (any HTTP endpoint) ──────────────────────── │
+# │    CUSTOM_WEBHOOK_URL        Your endpoint URL                 │
+# │    CUSTOM_WEBHOOK_SECRET     (optional) Sent as X-Webhook-Sig │
+# │                                                                │
+# └────────────────────────────────────────────────────────────────┘
+# ┌────────────────────────────────────────────────────────────────┐
+# │  OPTIONAL VARIABLES  (Settings → Variables → Actions)         │
+# ├────────────────────────────────────────────────────────────────┤
+# │  PROJECT_NAME          Display name (fallback: repo name)      │
+# │  NOTIFY_ON             Conclusions to notify on                │
+# │                        e.g. "failure,timed_out"                │
+# │                        (default: all)                          │
+# │  NOTIFY_EXCLUDE        Workflow names to skip                  │
+# │                        e.g. "Dependabot,Stale Issues"         │
+# │  NOTIFY_SILENT         "true" → send without sound/ping       │
+# │  NOTIFY_THREAD_ID      Telegram topic thread ID               │
+# │  NOTIFY_ONLY_BRANCHES  Branches to notify on                  │
+# │                        e.g. "main,staging,production"         │
+# │                        (default: all branches)                │
+# │  NOTIFY_ONLY_WORKFLOWS Workflow names to notify on             │
+# │                        e.g. "CI,Deploy,Release"               │
+# │                        (default: all workflows)               │
+# │  NOTIFY_MENTION_ON_FAIL  Slack/Discord user IDs to @mention   │
+# │                          on failure (comma-separated)          │
+# └────────────────────────────────────────────────────────────────┘
+#
+# ════════════════════════════════════════════════════════════════════
+
+name: CI Notifications
+
+on:
+  workflow_run:
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  notify:
+    name: Send CI Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      # ─── Detect which platforms have secrets configured ───
+      - name: Detect platforms
+        id: detect
+        run: |
+          has_any=false
+
+          if [[ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" && -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]]; then
+            echo "telegram=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "telegram=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.DISCORD_WEBHOOK_URL }}" ]]; then
+            echo "discord=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "discord=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]]; then
+            echo "slack=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "slack=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.TEAMS_WEBHOOK_URL }}" ]]; then
+            echo "teams=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "teams=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.PUMBLE_WEBHOOK_URL }}" ]]; then
+            echo "pumble=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "pumble=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.NTFY_TOPIC }}" ]]; then
+            echo "ntfy=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "ntfy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}" ]]; then
+            echo "google_chat=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "google_chat=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "${{ secrets.CUSTOM_WEBHOOK_URL }}" ]]; then
+            echo "custom=true" >> "$GITHUB_OUTPUT"; has_any=true
+          else
+            echo "custom=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$has_any" == "false" ]]; then
+            echo "::warning::No notification platform secrets configured. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ─── Main notification engine ────────────────────────
+      - name: Build & send notifications
+        if: steps.detect.outputs.skip != 'true'
+        env:
+          # Platforms
+          HAS_TELEGRAM:     ${{ steps.detect.outputs.telegram }}
+          HAS_DISCORD:      ${{ steps.detect.outputs.discord }}
+          HAS_SLACK:        ${{ steps.detect.outputs.slack }}
+          HAS_TEAMS:        ${{ steps.detect.outputs.teams }}
+          HAS_PUMBLE:       ${{ steps.detect.outputs.pumble }}
+          HAS_NTFY:         ${{ steps.detect.outputs.ntfy }}
+          HAS_GOOGLE_CHAT:  ${{ steps.detect.outputs.google_chat }}
+          HAS_CUSTOM:       ${{ steps.detect.outputs.custom }}
+          # Platform secrets
+          TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:         ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL:        ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL:        ${{ secrets.TEAMS_WEBHOOK_URL }}
+          PUMBLE_WEBHOOK_URL:       ${{ secrets.PUMBLE_WEBHOOK_URL }}
+          NTFY_TOPIC:               ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER:              ${{ secrets.NTFY_SERVER }}
+          GOOGLE_CHAT_WEBHOOK_URL:  ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+          CUSTOM_WEBHOOK_URL:       ${{ secrets.CUSTOM_WEBHOOK_URL }}
+          CUSTOM_WEBHOOK_SECRET:    ${{ secrets.CUSTOM_WEBHOOK_SECRET }}
+          # Workflow context
+          WORKFLOW_VARS_JSON: '${{ toJson(vars) }}'
+          WORKFLOW_NAME:     ${{ github.event.workflow_run.name }}
+          CONCLUSION:        ${{ github.event.workflow_run.conclusion }}
+          REPO:              ${{ github.repository }}
+          BRANCH:            ${{ github.event.workflow_run.head_branch }}
+          COMMIT_SHA:        ${{ github.event.workflow_run.head_sha }}
+          RUN_URL:           ${{ github.event.workflow_run.html_url }}
+          RUN_ID:            ${{ github.event.workflow_run.id }}
+          RUN_NUMBER:        ${{ github.event.workflow_run.run_number }}
+          RUN_ATTEMPT:       ${{ github.event.workflow_run.run_attempt }}
+          ACTOR:             ${{ github.event.workflow_run.actor.login }}
+          TRIGGER_EVENT:     ${{ github.event.workflow_run.event }}
+          CREATED_AT:        ${{ github.event.workflow_run.created_at }}
+          UPDATED_AT:        ${{ github.event.workflow_run.updated_at }}
+          GH_TOKEN:          ${{ github.token }}
+        run: |
+          python3 - <<'PYTHON_SCRIPT'
+          import hashlib
+          import hmac
+          import html
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime, timezone
+
+          # ═══════════════════════════════════════════════════════════
+          #  Helpers
+          # ═══════════════════════════════════════════════════════════
+
+          def env(key, default=""):
+              return os.environ.get(key, "") or default
+
+          def env_bool(key):
+              return env(key).lower() == "true"
+
+          vars_json = env("WORKFLOW_VARS_JSON", "{}")
+          try:
+              workflow_vars = json.loads(vars_json)
+              if not isinstance(workflow_vars, dict):
+                  workflow_vars = {}
+          except Exception:
+              workflow_vars = {}
+
+          def var(key, default=""):
+              value = workflow_vars.get(key, default)
+              return str(value) if value is not None else default
+
+          def csv_set(val):
+              return {x.strip().lower() for x in val.split(",") if x.strip()} if val else set()
+
+          def csv_list(val):
+              return [x.strip() for x in val.split(",") if x.strip()] if val else []
+
+          def gh_api(path):
+              url = f"https://api.github.com/repos/{env('REPO')}/{path}"
+              req = urllib.request.Request(url)
+              req.add_header("Authorization", f"Bearer {env('GH_TOKEN')}")
+              req.add_header("Accept", "application/vnd.github+json")
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      return json.loads(r.read())
+              except Exception as exc:
+                  print(f"::debug::GitHub API error ({path}): {exc}")
+                  return None
+
+          def fmt_duration(start_iso, end_iso):
+              try:
+                  fmt = "%Y-%m-%dT%H:%M:%SZ"
+                  secs = int(
+                      (datetime.strptime(end_iso, fmt) - datetime.strptime(start_iso, fmt)).total_seconds()
+                  )
+                  if secs < 0:
+                      return "n/a"
+                  parts = []
+                  for unit, div in [("h", 3600), ("m", 60), ("s", 1)]:
+                      val, secs = divmod(secs, div)
+                      if val:
+                          parts.append(f"{val}{unit}")
+                  return " ".join(parts) or "0s"
+              except Exception:
+                  return "n/a"
+
+          def fmt_job_duration(job):
+              s, c = job.get("started_at"), job.get("completed_at")
+              return fmt_duration(s, c) if s and c else ""
+
+          def http_post(url, payload, headers=None, retries=3):
+              """Generic HTTP POST with retries and exponential backoff."""
+              body = json.dumps(payload).encode()
+              delay = 2
+              for attempt in range(1, retries + 1):
+                  req = urllib.request.Request(url, data=body, method="POST")
+                  req.add_header("Content-Type", "application/json")
+                  if headers:
+                      for k, v in headers.items():
+                          req.add_header(k, v)
+                  try:
+                      with urllib.request.urlopen(req, timeout=15) as resp:
+                          return True, resp.status, resp.read().decode(errors="replace")
+                  except urllib.error.HTTPError as exc:
+                      err = exc.read().decode(errors="replace")
+                      print(f"::warning::Attempt {attempt}/{retries} → HTTP {exc.code}: {err[:200]}")
+                  except Exception as exc:
+                      print(f"::warning::Attempt {attempt}/{retries} → {type(exc).__name__}: {exc}")
+                  if attempt < retries:
+                      time.sleep(delay)
+                      delay *= 2
+              return False, 0, ""
+
+          e = html.escape
+
+          # ═══════════════════════════════════════════════════════════
+          #  Gate — should we send?
+          # ═══════════════════════════════════════════════════════════
+
+          conclusion = env("CONCLUSION", "unknown").lower()
+          workflow   = env("WORKFLOW_NAME", "Unknown")
+          branch     = env("BRANCH", "unknown")
+
+          # Never notify about self
+          if workflow.lower() == "ci notifications":
+              print("Self-trigger. Skipping.")
+              sys.exit(0)
+
+          # Excluded workflows
+          excluded = csv_set(var("NOTIFY_EXCLUDE"))
+          if workflow.lower() in excluded:
+              print(f"'{workflow}' is excluded. Skipping.")
+              sys.exit(0)
+
+          # Workflow allow-list
+          only_workflows = csv_set(var("NOTIFY_ONLY_WORKFLOWS"))
+          if only_workflows and workflow.lower() not in only_workflows:
+              print(f"'{workflow}' not in NOTIFY_ONLY_WORKFLOWS. Skipping.")
+              sys.exit(0)
+
+          # Conclusion filter
+          notify_on = csv_set(var("NOTIFY_ON"))
+          if notify_on and conclusion not in notify_on:
+              print(f"'{conclusion}' not in NOTIFY_ON. Skipping.")
+              sys.exit(0)
+
+          # Branch filter
+          only_branches = csv_set(var("NOTIFY_ONLY_BRANCHES"))
+          if only_branches and branch.lower() not in only_branches:
+              print(f"'{branch}' not in NOTIFY_ONLY_BRANCHES. Skipping.")
+              sys.exit(0)
+
+          # ═══════════════════════════════════════════════════════════
+          #  Collect data from GitHub API
+          # ═══════════════════════════════════════════════════════════
+
+          repo        = env("REPO")
+          sha         = env("COMMIT_SHA")
+          run_url     = env("RUN_URL")
+          run_num     = env("RUN_NUMBER")
+          run_id      = env("RUN_ID")
+          run_attempt = env("RUN_ATTEMPT", "1")
+          actor       = env("ACTOR", "unknown")
+          event       = env("TRIGGER_EVENT", "push")
+          created     = env("CREATED_AT")
+          updated     = env("UPDATED_AT")
+          project     = (
+              var("PROJECT_NAME")
+              or repo.split("/")[-1].replace("-", " ").replace("_", " ").title()
+          )
+
+          # Commit info
+          commit_msg    = "No commit message"
+          commit_author = actor
+          if sha:
+              data = gh_api(f"commits/{sha}")
+              if data and "commit" in data:
+                  raw   = data["commit"].get("message", "")
+                  first = (raw.splitlines() or [""])[0][:80]
+                  commit_msg = first or "No commit message"
+                  commit_author = (
+                      data.get("author", {}).get("login")
+                      or data["commit"].get("author", {}).get("name")
+                      or actor
+                  )
+
+          # Job details
+          jobs_data = []
+          if run_id:
+              data = gh_api(f"actions/runs/{run_id}/jobs?filter=latest&per_page=100")
+              if data and "jobs" in data:
+                  jobs_data = data["jobs"]
+
+          # Pre-compute common values
+          STATUS_MAP = {
+              "success":   ("✅", "Successful",  0x2ECC71),
+              "failure":   ("❌", "Failed",       0xE74C3C),
+              "cancelled": ("⚠️", "Cancelled",    0xF39C12),
+              "timed_out": ("⏰", "Timed Out",    0xE67E22),
+              "skipped":   ("⏭️", "Skipped",      0x95A5A6),
+          }
+          JOB_ICON = {
+              "success": "✅", "failure": "❌", "cancelled": "⚠️",
+              "skipped": "⏭️", "timed_out": "⏰", "in_progress": "🔄", "queued": "🕐",
+          }
+
+          main_emoji, main_label, main_color = STATUS_MAP.get(
+              conclusion, ("ℹ️", conclusion.title(), 0x7289DA)
+          )
+          short_sha   = sha[:7] if sha else "unknown"
+          duration    = fmt_duration(created, updated)
+          ts          = datetime.now(timezone.utc).strftime("%b %d, %Y • %H:%M UTC")
+          attempt_str = f"  ⟳ attempt #{run_attempt}" if run_attempt and int(run_attempt) > 1 else ""
+          commit_url  = f"https://github.com/{repo}/commit/{sha}"
+          actor_url   = f"https://github.com/{actor}"
+          author_url  = f"https://github.com/{commit_author}"
+          is_failure  = conclusion == "failure"
+
+          # Job summary data
+          job_counts = {}
+          for j in jobs_data:
+              c = j.get("conclusion") or j.get("status") or "unknown"
+              job_counts[c] = job_counts.get(c, 0) + 1
+
+          failed_jobs = [j for j in jobs_data if (j.get("conclusion") or "") == "failure"]
+          failed_steps_map = {}
+          for j in failed_jobs:
+              steps = [s["name"] for s in j.get("steps", []) if s.get("conclusion") == "failure"]
+              if steps:
+                  failed_steps_map[j["name"]] = steps[:4]
+
+          mention_ids  = csv_list(var("NOTIFY_MENTION_ON_FAIL"))
+          silent       = var("NOTIFY_SILENT").lower() == "true"
+          results      = {}  # track per-platform results
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: TELEGRAM  (HTML parse mode)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_TELEGRAM"):
+              print("── Telegram ──")
+              token   = env("TELEGRAM_BOT_TOKEN")
+              chat_id = env("TELEGRAM_CHAT_ID")
+
+              lines = [
+                  f"{main_emoji} <b>{e(project)}</b> — {e(main_label)}",
+                  "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                  "",
+                  f"📦 <b>{e(workflow)}</b>  <code>#{e(run_num)}</code>{e(attempt_str)}",
+                  f"🌿 <code>{e(branch)}</code>  ‹{e(event)}›",
+                  f'🔗 <a href="{e(commit_url)}">{e(short_sha)}</a>'
+                  f" — <i>{e(commit_msg)}</i>",
+                  f'👤 <a href="{e(author_url)}">@{e(commit_author)}</a>'
+                  + (
+                      f'  (triggered by <a href="{e(actor_url)}">@{e(actor)}</a>)'
+                      if commit_author.lower() != actor.lower() else ""
+                  ),
+                  f"⏱ {e(duration)}{e(attempt_str)}",
+              ]
+
+              if jobs_data:
+                  lines += ["", "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈"]
+                  summary = []
+                  for key, label in [
+                      ("success","passed"), ("failure","failed"), ("cancelled","cancelled"),
+                      ("skipped","skipped"), ("timed_out","timed out"),
+                  ]:
+                      if job_counts.get(key):
+                          summary.append(f"{job_counts[key]} {label}")
+                  if summary:
+                      lines.append(f"<b>{len(jobs_data)} jobs</b>: {', '.join(summary)}")
+                      lines.append("")
+
+                  for job in jobs_data:
+                      jc   = job.get("conclusion") or job.get("status") or "unknown"
+                      icon = JOB_ICON.get(jc, "❔")
+                      name = job.get("name", "unknown")
+                      dur  = fmt_job_duration(job)
+                      dur_s = f"  ({dur})" if dur else ""
+                      lines.append(f"  {icon} <b>{e(name)}</b>{e(dur_s)}")
+                      if jc == "failure" and name in failed_steps_map:
+                          for step in failed_steps_map[name]:
+                              lines.append(f"      ↳ ❌ {e(step)}")
+
+              lines += [
+                  "", "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                  f'🔍 <a href="{e(run_url)}">View Full Run Details →</a>',
+                  f"🕐 {e(ts)}",
+              ]
+
+              payload = {
+                  "chat_id": chat_id,
+                  "text": "\n".join(lines),
+                  "parse_mode": "HTML",
+                  "disable_web_page_preview": True,
+              }
+              if silent:
+                  payload["disable_notification"] = True
+              thread_id = var("NOTIFY_THREAD_ID")
+              if thread_id:
+                  try:
+                      payload["message_thread_id"] = int(thread_id)
+                  except ValueError:
+                      pass
+
+              ok, _, _ = http_post(
+                  f"https://api.telegram.org/bot{token}/sendMessage", payload
+              )
+              results["Telegram"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: DISCORD  (Webhook with rich embed)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_DISCORD"):
+              print("── Discord ──")
+              webhook_url = env("DISCORD_WEBHOOK_URL")
+
+              job_lines = []
+              for job in jobs_data:
+                  jc   = job.get("conclusion") or job.get("status") or "unknown"
+                  icon = JOB_ICON.get(jc, "❔")
+                  name = job.get("name", "unknown")
+                  dur  = fmt_job_duration(job)
+                  dur_s = f"  ({dur})" if dur else ""
+                  job_lines.append(f"{icon} **{name}**{dur_s}")
+                  if jc == "failure" and name in failed_steps_map:
+                      for step in failed_steps_map[name]:
+                          job_lines.append(f"    ↳ ❌ {step}")
+
+              fields = [
+                  {"name": "Workflow", "value": f"**{workflow}**  `#{run_num}`{attempt_str}", "inline": False},
+                  {"name": "Branch",   "value": f"`{branch}`  ‹{event}›", "inline": True},
+                  {"name": "Duration", "value": duration,                  "inline": True},
+                  {"name": "Commit",   "value": f"[`{short_sha}`]({commit_url}) — *{commit_msg}*", "inline": False},
+                  {"name": "Author",   "value": f"[{commit_author}]({author_url})"
+                      + (f" (triggered by [{actor}]({actor_url}))" if commit_author.lower() != actor.lower() else ""),
+                      "inline": True},
+              ]
+              if job_lines:
+                  # Discord embed field max 1024 chars — truncate if needed
+                  jtext = "\n".join(job_lines)
+                  if len(jtext) > 1020:
+                      jtext = jtext[:1017] + "…"
+                  fields.append({"name": f"Jobs ({len(jobs_data)})", "value": jtext, "inline": False})
+
+              embed = {
+                  "title":       f"{main_emoji} {project} — {main_label}",
+                  "url":         run_url,
+                  "color":       main_color,
+                  "fields":      fields,
+                  "footer":      {"text": ts},
+              }
+
+              # Mention on failure
+              content = ""
+              if is_failure and mention_ids:
+                  content = " ".join(f"<@{uid}>" for uid in mention_ids)
+
+              payload = {
+                  "embeds":  [embed],
+                  "content": content or None,
+              }
+              if silent:
+                  payload["flags"] = 4096  # SUPPRESS_NOTIFICATIONS
+
+              ok, _, _ = http_post(webhook_url, payload)
+              results["Discord"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: SLACK  (Block Kit)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_SLACK"):
+              print("── Slack ──")
+              webhook_url = env("SLACK_WEBHOOK_URL")
+
+              job_lines = []
+              for job in jobs_data:
+                  jc   = job.get("conclusion") or job.get("status") or "unknown"
+                  icon = JOB_ICON.get(jc, "❔")
+                  name = job.get("name", "unknown")
+                  dur  = fmt_job_duration(job)
+                  dur_s = f"  ({dur})" if dur else ""
+                  job_lines.append(f"{icon} *{name}*{dur_s}")
+                  if jc == "failure" and name in failed_steps_map:
+                      for step in failed_steps_map[name]:
+                          job_lines.append(f"    ↳ ❌ {step}")
+
+              blocks = [
+                  {
+                      "type": "header",
+                      "text": {"type": "plain_text", "text": f"{main_emoji} {project} — {main_label}", "emoji": True},
+                  },
+                  {
+                      "type": "section",
+                      "fields": [
+                          {"type": "mrkdwn", "text": f"*Workflow:*\n{workflow}  `#{run_num}`{attempt_str}"},
+                          {"type": "mrkdwn", "text": f"*Branch:*\n`{branch}`  ‹{event}›"},
+                          {"type": "mrkdwn", "text": f"*Duration:*\n{duration}"},
+                          {"type": "mrkdwn", "text": f"*Commit:*\n<{commit_url}|`{short_sha}`> — _{commit_msg}_"},
+                      ],
+                  },
+                  {
+                      "type": "section",
+                      "text": {
+                          "type": "mrkdwn",
+                          "text": f"*Author:* <{author_url}|{commit_author}>"
+                              + (f"  (triggered by <{actor_url}|{actor}>)" if commit_author.lower() != actor.lower() else ""),
+                      },
+                  },
+              ]
+
+              if job_lines:
+                  jtext = "\n".join(job_lines)
+                  if len(jtext) > 2900:
+                      jtext = jtext[:2897] + "…"
+                  blocks.append({
+                      "type": "section",
+                      "text": {"type": "mrkdwn", "text": f"*Jobs ({len(jobs_data)}):*\n{jtext}"},
+                  })
+
+              blocks.append({"type": "divider"})
+              blocks.append({
+                  "type": "actions",
+                  "elements": [{
+                      "type": "button",
+                      "text": {"type": "plain_text", "text": "🔍 View Run Details", "emoji": True},
+                      "url": run_url,
+                  }],
+              })
+              blocks.append({
+                  "type": "context",
+                  "elements": [{"type": "mrkdwn", "text": f"🕐 {ts}"}],
+              })
+
+              # Mention on failure
+              mention_text = ""
+              if is_failure and mention_ids:
+                  mention_text = " ".join(f"<@{uid}>" for uid in mention_ids) + " "
+
+              payload = {"blocks": blocks, "text": f"{mention_text}{main_emoji} {project} — {main_label}"}
+
+              ok, _, _ = http_post(webhook_url, payload)
+              results["Slack"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: MICROSOFT TEAMS  (Adaptive Card via Workflow)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_TEAMS"):
+              print("── Microsoft Teams ──")
+              webhook_url = env("TEAMS_WEBHOOK_URL")
+
+              job_text = ""
+              if jobs_data:
+                  parts = []
+                  for job in jobs_data:
+                      jc   = job.get("conclusion") or job.get("status") or "unknown"
+                      icon = JOB_ICON.get(jc, "❔")
+                      name = job.get("name", "unknown")
+                      dur  = fmt_job_duration(job)
+                      dur_s = f" ({dur})" if dur else ""
+                      parts.append(f"{icon} **{name}**{dur_s}")
+                      if jc == "failure" and name in failed_steps_map:
+                          for step in failed_steps_map[name]:
+                              parts.append(f"&nbsp;&nbsp;&nbsp;↳ ❌ {step}")
+                  job_text = "\n\n".join(parts)
+
+              card = {
+                  "type": "message",
+                  "attachments": [{
+                      "contentType": "application/vnd.microsoft.card.adaptive",
+                      "content": {
+                          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                          "type": "AdaptiveCard",
+                          "version": "1.4",
+                          "body": [
+                              {
+                                  "type": "TextBlock",
+                                  "text": f"{main_emoji} {project} — {main_label}",
+                                  "weight": "Bolder",
+                                  "size": "Large",
+                                  "wrap": True,
+                              },
+                              {
+                                  "type": "FactSet",
+                                  "facts": [
+                                      {"title": "Workflow", "value": f"{workflow}  #{run_num}{attempt_str}"},
+                                      {"title": "Branch",   "value": f"{branch}  ‹{event}›"},
+                                      {"title": "Commit",   "value": f"{short_sha} — {commit_msg}"},
+                                      {"title": "Author",   "value": commit_author
+                                          + (f" (triggered by {actor})" if commit_author.lower() != actor.lower() else "")},
+                                      {"title": "Duration", "value": duration},
+                                  ],
+                              },
+                          ],
+                          "actions": [{
+                              "type": "Action.OpenUrl",
+                              "title": "🔍 View Run Details",
+                              "url": run_url,
+                          }],
+                      },
+                  }],
+              }
+
+              if job_text:
+                  card["attachments"][0]["content"]["body"].append({
+                      "type": "TextBlock",
+                      "text": job_text,
+                      "wrap": True,
+                      "size": "Small",
+                      "fontType": "Monospace",
+                  })
+
+              ok, _, _ = http_post(webhook_url, card)
+              results["Teams"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: PUMBLE  (Slack-compatible webhook)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_PUMBLE"):
+              print("── Pumble ──")
+              webhook_url = env("PUMBLE_WEBHOOK_URL")
+
+              # Pumble supports a subset of Slack formatting
+              lines = [
+                  f"*{main_emoji} {project} — {main_label}*",
+                  "",
+                  f"*Workflow:* {workflow}  `#{run_num}`{attempt_str}",
+                  f"*Branch:* `{branch}`  ‹{event}›",
+                  f"*Commit:* <{commit_url}|`{short_sha}`> — _{commit_msg}_",
+                  f"*Author:* <{author_url}|{commit_author}>"
+                  + (f"  (triggered by <{actor_url}|{actor}>)" if commit_author.lower() != actor.lower() else ""),
+                  f"*Duration:* {duration}",
+              ]
+
+              if jobs_data:
+                  lines.append("")
+                  for job in jobs_data:
+                      jc   = job.get("conclusion") or job.get("status") or "unknown"
+                      icon = JOB_ICON.get(jc, "❔")
+                      name = job.get("name", "unknown")
+                      dur  = fmt_job_duration(job)
+                      dur_s = f"  ({dur})" if dur else ""
+                      lines.append(f"{icon} *{name}*{dur_s}")
+                      if jc == "failure" and name in failed_steps_map:
+                          for step in failed_steps_map[name]:
+                              lines.append(f"    ↳ ❌ {step}")
+
+              lines += ["", f"<{run_url}|🔍 View Run Details →>", f"🕐 {ts}"]
+
+              payload = {"text": "\n".join(lines)}
+              ok, _, _ = http_post(webhook_url, payload)
+              results["Pumble"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: NTFY  (push notifications via ntfy.sh)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_NTFY"):
+              print("── ntfy ──")
+              topic  = env("NTFY_TOPIC")
+              server = env("NTFY_SERVER", "https://ntfy.sh")
+              url    = f"{server.rstrip('/')}/{topic}"
+
+              job_summary = ""
+              if jobs_data:
+                  parts = []
+                  for job in jobs_data:
+                      jc   = job.get("conclusion") or job.get("status") or "unknown"
+                      icon = JOB_ICON.get(jc, "❔")
+                      name = job.get("name", "unknown")
+                      parts.append(f"{icon} {name}")
+                  job_summary = "\n" + "\n".join(parts)
+
+              body_text = (
+                  f"Workflow: {workflow} #{run_num}{attempt_str}\n"
+                  f"Branch: {branch} ‹{event}›\n"
+                  f"Commit: {short_sha} — {commit_msg}\n"
+                  f"Author: {commit_author}\n"
+                  f"Duration: {duration}"
+                  f"{job_summary}"
+              )
+
+              priority_map = {"failure": "urgent", "timed_out": "high", "cancelled": "default", "success": "low"}
+              tag_map      = {"success": "white_check_mark", "failure": "x", "cancelled": "warning", "timed_out": "alarm_clock"}
+
+              ntfy_req = urllib.request.Request(url, data=body_text.encode(), method="POST")
+              ntfy_req.add_header("Title", f"{main_emoji} {project} — {main_label}")
+              ntfy_req.add_header("Priority", priority_map.get(conclusion, "default"))
+              ntfy_req.add_header("Tags", tag_map.get(conclusion, "information_source"))
+              ntfy_req.add_header("Click", run_url)
+              ntfy_req.add_header("Actions", f"view, View Run, {run_url}")
+
+              try:
+                  with urllib.request.urlopen(ntfy_req, timeout=15) as resp:
+                      results["ntfy"] = True
+                      print(f"✓ Sent to ntfy")
+              except Exception as exc:
+                  print(f"::warning::ntfy failed: {exc}")
+                  results["ntfy"] = False
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: GOOGLE CHAT  (Card V2)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_GOOGLE_CHAT"):
+              print("── Google Chat ──")
+              webhook_url = env("GOOGLE_CHAT_WEBHOOK_URL")
+
+              job_text = ""
+              if jobs_data:
+                  parts = []
+                  for job in jobs_data:
+                      jc   = job.get("conclusion") or job.get("status") or "unknown"
+                      icon = JOB_ICON.get(jc, "❔")
+                      name = job.get("name", "unknown")
+                      dur  = fmt_job_duration(job)
+                      dur_s = f" ({dur})" if dur else ""
+                      parts.append(f"{icon} *{name}*{dur_s}")
+                  job_text = "\n".join(parts)
+
+              payload = {
+                  "cardsV2": [{
+                      "cardId": f"ci-{run_id}",
+                      "card": {
+                          "header": {
+                              "title": f"{main_emoji} {project} — {main_label}",
+                              "subtitle": f"{workflow} #{run_num}",
+                          },
+                          "sections": [
+                              {
+                                  "widgets": [
+                                      {"decoratedText": {"topLabel": "Branch",   "text": f"{branch}  ‹{event}›"}},
+                                      {"decoratedText": {"topLabel": "Commit",   "text": f"{short_sha} — {commit_msg}"}},
+                                      {"decoratedText": {"topLabel": "Author",   "text": commit_author}},
+                                      {"decoratedText": {"topLabel": "Duration", "text": duration}},
+                                  ],
+                              },
+                          ] + ([{
+                              "header": f"Jobs ({len(jobs_data)})",
+                              "widgets": [{"textParagraph": {"text": job_text}}],
+                          }] if job_text else []) + [{
+                              "widgets": [{
+                                  "buttonList": {
+                                      "buttons": [{
+                                          "text": "🔍 View Run Details",
+                                          "onClick": {"openLink": {"url": run_url}},
+                                      }],
+                                  },
+                              }],
+                          }],
+                      },
+                  }],
+              }
+
+              ok, _, _ = http_post(webhook_url, payload)
+              results["Google Chat"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Platform: CUSTOM WEBHOOK  (generic JSON POST)
+          # ═══════════════════════════════════════════════════════════
+
+          if env_bool("HAS_CUSTOM"):
+              print("── Custom Webhook ──")
+              webhook_url = env("CUSTOM_WEBHOOK_URL")
+              secret      = env("CUSTOM_WEBHOOK_SECRET")
+
+              payload = {
+                  "event":       "workflow_completed",
+                  "project":     project,
+                  "conclusion":  conclusion,
+                  "workflow":    workflow,
+                  "run_number":  run_num,
+                  "run_attempt": run_attempt,
+                  "branch":      branch,
+                  "trigger":     event,
+                  "commit": {
+                      "sha":     sha,
+                      "short":   short_sha,
+                      "message": commit_msg,
+                      "author":  commit_author,
+                      "url":     commit_url,
+                  },
+                  "actor":       actor,
+                  "duration":    duration,
+                  "run_url":     run_url,
+                  "timestamp":   datetime.now(timezone.utc).isoformat(),
+                  "jobs": [
+                      {
+                          "name":       j.get("name"),
+                          "conclusion": j.get("conclusion") or j.get("status"),
+                          "duration":   fmt_job_duration(j),
+                          "failed_steps": [
+                              s["name"] for s in j.get("steps", [])
+                              if s.get("conclusion") == "failure"
+                          ],
+                      }
+                      for j in jobs_data
+                  ],
+              }
+
+              headers = {}
+              if secret:
+                  sig = hmac.new(secret.encode(), json.dumps(payload).encode(), hashlib.sha256).hexdigest()
+                  headers["X-Webhook-Signature"] = f"sha256={sig}"
+
+              ok, _, _ = http_post(webhook_url, payload, headers=headers)
+              results["Custom Webhook"] = ok
+
+          # ═══════════════════════════════════════════════════════════
+          #  Summary
+          # ═══════════════════════════════════════════════════════════
+
+          print("\n╔══════════════════════════════════╗")
+          print("║  Notification Results            ║")
+          print("╠══════════════════════════════════╣")
+          for platform, ok in results.items():
+              icon = "✅" if ok else "❌"
+              print(f"║  {icon} {platform:<26} ║")
+          print("╚══════════════════════════════════╝")
+
+          if all(results.values()):
+              print("\nAll notifications sent successfully.")
+          elif any(results.values()):
+              print("::warning::Some notifications failed (non-blocking).")
+          else:
+              print("::warning::All notifications failed (non-blocking).")
+          PYTHON_SCRIPT

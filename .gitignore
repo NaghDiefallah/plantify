@@ -1,4 +1,6 @@
 ﻿venv/
+.vscode/
+.pytest_cache/
 dataset/
 __pycache__/
 .streamlit/

@@ -27,13 +27,11 @@ jobs:
         with:
           path: artifacts
 
-      - name: Generate SLSA provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3@v2.0.0
-        with:
-          base64-subjects: |
-            $(find artifacts -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dmg" -o -name "*.AppImage" \) -exec sha256sum {} \; | base64 -w0)
-          upload-assets: true
-          compile-generator: true
+      - name: Generate digest subjects
+        run: |
+          set -euo pipefail
+          find artifacts -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; | sort > subjects.sha256
+          wc -l subjects.sha256 || true
 
       - name: Create provenance manifest
         run: |
@@ -59,6 +57,7 @@ jobs:
                 "commit_sha": "${{ github.sha }}"
               }
             },
+            "subjects_sha256": "subjects.sha256",
             "materials": [
               {
                 "uri": "git+https://github.com/${{ github.repository }}.git@${{ github.ref }}",
@@ -80,6 +79,6 @@ jobs:
         with:
           name: slsa-provenance
           path: |
+            subjects.sha256
             provenance-manifest.json
-            **/*.intoto.jsonl
           retention-days: 90

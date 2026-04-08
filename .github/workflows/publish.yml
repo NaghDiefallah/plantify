@@ -224,7 +224,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
           source: "docker-compose.prod.yml"
-          target: ${{ secrets.VPS_APP_DIR || env.VPS_APP_DIR }}
+          target: ${{ env.VPS_APP_DIR }}
           strip_components: 0
 
       - name: Deploy containers
@@ -238,7 +238,7 @@ jobs:
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           FRONTEND_ENV_FILE: ${{ secrets.FRONTEND_ENV_FILE }}
           CHATBOT_MODEL_NAME: ${{ secrets.CHATBOT_MODEL_NAME || 'qwen2.5:1.5b' }}
-          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || env.VPS_APP_DIR }}
+          VPS_APP_DIR: ${{ env.VPS_APP_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
