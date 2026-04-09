@@ -472,6 +472,10 @@ jobs:
             target: i686-unknown-linux-gnu
             artifact: desktop-linux-x86
             experimental: true
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: desktop-linux-arm64
+            experimental: true
           - runner: macos-latest
             target: x86_64-apple-darwin
             artifact: desktop-macos-x64
@@ -506,10 +510,13 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Linux desktop dependencies
-        if: matrix.runner == 'ubuntu-22.04'
+        if: startsWith(matrix.runner, 'ubuntu-')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf gcc-multilib g++-multilib libc6-dev-i386
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          if [ "${{ matrix.target }}" = "i686-unknown-linux-gnu" ]; then
+            sudo apt-get install -y gcc-multilib g++-multilib libc6-dev-i386
+          fi
 
       - name: Install frontend dependencies
         working-directory: ${{ env.FRONTEND_DIR }}
@@ -557,7 +564,7 @@ jobs:
           echo "✓ Debug symbol stripping complete"
 
       - name: Compress AppImage for Linux
-        if: matrix.runner == 'ubuntu-22.04'
+        if: startsWith(matrix.runner, 'ubuntu-')
         continue-on-error: true
         run: |
           echo "Attempting to compress AppImage with UPX..."
@@ -580,6 +587,28 @@ jobs:
           else
             echo "⚠ UPX not available; AppImage will remain uncompressed"
           fi
+
+      - name: Create portable Windows executable
+        if: matrix.runner == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arch = if ('${{ matrix.target }}' -like 'x86_64*') { 'x64' } else { 'x86' }
+          $releaseDir = "frontend/src-tauri/target/${{ matrix.target }}/release"
+          $portableDir = Join-Path $releaseDir 'bundle/portable'
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+
+          $portableSource = Get-ChildItem -Path $releaseDir -File -Filter '*.exe' |
+            Where-Object { $_.Name -notmatch 'setup|unins|tauri|cargo|vc_redist' } |
+            Select-Object -First 1
+
+          if ($null -ne $portableSource) {
+            $portableOut = Join-Path $portableDir "plantify-${env:RELEASE_TAG}-windows-${arch}-portable.exe"
+            Copy-Item $portableSource.FullName $portableOut -Force
+            Write-Host "Created portable executable: $portableOut"
+          } else {
+            Write-Host "No direct executable found for portable packaging."
+          }
 
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v4
@@ -618,7 +647,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: android-*
-          merge-multiple: true
           path: release-assets/android
 
       - name: Download iOS artifacts
@@ -627,7 +655,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: ios-*
-          merge-multiple: true
           path: release-assets/ios
 
       - name: Download desktop artifacts
@@ -635,8 +662,88 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: desktop-*
-          merge-multiple: true
           path: release-assets/desktop
+
+      - name: Normalize release artifact names
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p release-assets/published
+
+          # Android: keep per-arch outputs and use explicit names.
+          for d in release-assets/android/android-*; do
+            [ -d "$d" ] || continue
+            name=$(basename "$d")
+            arch="${name#android-${RELEASE_TAG}-}"
+
+            apk=$(find "$d" -type f -name "*.apk" | head -n1 || true)
+            aab=$(find "$d" -type f -name "*.aab" | head -n1 || true)
+
+            if [ -n "$apk" ]; then
+              cp -f "$apk" "release-assets/published/plantify-${RELEASE_TAG}-android-${arch}.apk"
+            fi
+            if [ -n "$aab" ]; then
+              cp -f "$aab" "release-assets/published/plantify-${RELEASE_TAG}-android-${arch}.aab"
+            fi
+          done
+
+          # iOS (optional)
+          ipa=$(find release-assets/ios -type f -name "*.ipa" | head -n1 || true)
+          if [ -n "${ipa:-}" ]; then
+            cp -f "$ipa" "release-assets/published/plantify-${RELEASE_TAG}-ios-arm64.ipa"
+          fi
+
+          # Desktop: normalize by platform/arch and output type.
+          while IFS= read -r file; do
+            rel="${file#release-assets/desktop/}"
+            artifact_dir="${rel%%/*}"
+            base=$(basename "$file")
+
+            platform="desktop"
+            arch="unknown"
+            case "$artifact_dir" in
+              desktop-windows-x64-*) platform="windows"; arch="x64" ;;
+              desktop-windows-x86-*) platform="windows"; arch="x86" ;;
+              desktop-linux-x64-*) platform="linux"; arch="amd64" ;;
+              desktop-linux-x86-*) platform="linux"; arch="x86" ;;
+              desktop-linux-arm64-*) platform="linux"; arch="arm64" ;;
+              desktop-macos-x64-*) platform="macos"; arch="x64" ;;
+              desktop-macos-arm64-*) platform="macos"; arch="arm64" ;;
+            esac
+
+            ext="${base##*.}"
+            if [[ "$base" == *.tar.gz ]]; then
+              ext="tar.gz"
+            elif [[ "$base" == *.AppImage ]]; then
+              ext="AppImage"
+            fi
+
+            flavor=""
+            if [[ "$base" == *portable* ]] || [[ "$base" == *-portable.exe ]]; then
+              flavor="-portable"
+            fi
+
+            out="plantify-${RELEASE_TAG}-${platform}-${arch}${flavor}.${ext}"
+
+            # Fedora naming for AMD64 RPM as requested.
+            if [[ "$platform" == "linux" && "$arch" == "amd64" && "$ext" == "rpm" ]]; then
+              out="plantify-${RELEASE_TAG}-fedora-amd64.rpm"
+            fi
+
+            cp -f "$file" "release-assets/published/$out"
+          done < <(find release-assets/desktop -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.sig" \) | sort)
+
+          # Arch Linux-specific artifacts (portable AppImage aliasing).
+          if [ -f "release-assets/published/plantify-${RELEASE_TAG}-linux-amd64.AppImage" ]; then
+            cp -f "release-assets/published/plantify-${RELEASE_TAG}-linux-amd64.AppImage" "release-assets/published/plantify-${RELEASE_TAG}-archlinux-amd64.AppImage"
+          fi
+          if [ -f "release-assets/published/plantify-${RELEASE_TAG}-linux-arm64.AppImage" ]; then
+            cp -f "release-assets/published/plantify-${RELEASE_TAG}-linux-arm64.AppImage" "release-assets/published/plantify-${RELEASE_TAG}-archlinux-arm64.AppImage"
+          fi
+
+          echo "Prepared publishable artifacts:"
+          ls -la release-assets/published || true
 
       - name: Install cosign for artifact signing
         uses: sigstore/cosign-installer@v3
@@ -653,7 +760,7 @@ jobs:
       - name: Sign artifacts with Cosign
         continue-on-error: true
         run: |
-          cd release-assets
+          cd release-assets/published
           find . -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.tar.gz" \) | while read -r file; do
             echo "Signing: $file"
             # For ephemeral key (CI environment)
@@ -665,15 +772,14 @@ jobs:
           echo "✓ Artifact signing complete"
 
       - name: Generate checksums
-        working-directory: release-assets
+        working-directory: release-assets/published
         run: |
           echo "Generating checksums for release artifacts..."
-          # Exclude internal data archives, cache files, and control files
           find . -type f \( \
             -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o \
             -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o \
             -name "*.zip" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.AppImage" \
-          \) ! -path "*/.gradle/*" ! -path "*/.cache/*" ! -path "*/build/*" | sort | while read -r file; do
+          \) | sort | while read -r file; do
             sha256sum "$file" >> checksums.txt
           done
           echo "📋 Checksums generated:"
@@ -814,23 +920,24 @@ jobs:
             
             **Android**: arm64-v8a, armeabi-v7a, x86, x86_64 (universal APK + Play Store AAB)  
             **iOS**: arm64 (universal)  
+            **Linux ARM**: arm64 (experimental)  
             **macOS**: x86_64, arm64 (universal DMG)  
-            **Windows**: x86_64, x86 (MSI + portable)  
-            **Linux**: x86_64, x86, AppImage (compressed)
+            **Windows**: x86_64, x86 (portable EXE + installer)  
+            **Linux**: x86_64, x86, arm64 (AppImage/deb/rpm)
           files: |
-            release-assets/android/**/*.apk
-            release-assets/android/**/*.aab
-            release-assets/ios/**/*.ipa
-            release-assets/desktop/**/*.exe
-            release-assets/desktop/**/*.msi
-            release-assets/desktop/**/*.deb
-            release-assets/desktop/**/*.rpm
-            release-assets/desktop/**/*.zip
-            release-assets/desktop/**/*.sig
-            release-assets/desktop/**/*.AppImage
-            release-assets/desktop/**/*.dmg
-            release-assets/desktop/**/*.tar.gz
-            release-assets/checksums.txt
+            release-assets/published/*.apk
+            release-assets/published/*.aab
+            release-assets/published/*.ipa
+            release-assets/published/*.exe
+            release-assets/published/*.msi
+            release-assets/published/*.deb
+            release-assets/published/*.rpm
+            release-assets/published/*.zip
+            release-assets/published/*.sig
+            release-assets/published/*.AppImage
+            release-assets/published/*.dmg
+            release-assets/published/*.tar.gz
+            release-assets/published/checksums.txt
 
       - name: Configure git identity
         run: |
