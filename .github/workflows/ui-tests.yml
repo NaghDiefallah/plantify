@@ -120,5 +120,5 @@ jobs:
         uses: treosh/lighthouse-ci-action@v9
         with:
           configPath: ./lighthouserc.json
-          uploadArtifacts: true
+          uploadArtifacts: false
           runs: 1
