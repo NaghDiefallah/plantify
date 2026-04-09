@@ -2,6 +2,14 @@ name: Telegram Notifications
 
 on:
   workflow_run:
+    workflows:
+      - "Build, Publish, and Deploy"
+      - "Cross-Platform Release"
+      - "Generate SBOM (SPDX)"
+      - "Generate SLSA Provenance"
+      - "UI Tests (Headless)"
+      - "Deploy Documentation"
+      - "Auto Tag Release"
     types: [completed]
 
 permissions:
@@ -71,6 +79,7 @@ jobs:
 
       - name: Send Telegram message
         if: steps.gate.outputs.skip != 'true'
+        continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
