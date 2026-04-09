@@ -531,6 +531,8 @@ jobs:
         run: bun run tauri:build -- --target ${{ matrix.target }}
 
       - name: Strip debug symbols from binaries
+        shell: bash
+        continue-on-error: true
         run: |
           if [ "${{ matrix.runner }}" = "ubuntu-22.04" ]; then
             echo "Stripping debug symbols from Linux binaries..."
@@ -599,6 +601,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     needs:
       - android
       - ios
@@ -620,6 +623,7 @@ jobs:
 
       - name: Download iOS artifacts
         if: ${{ needs.ios.outputs.ios_enabled == 'true' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: ios-*
@@ -627,6 +631,7 @@ jobs:
           path: release-assets/ios
 
       - name: Download desktop artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: desktop-*
