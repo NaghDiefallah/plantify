@@ -529,6 +529,7 @@ jobs:
           path: frontend/out
 
       - name: Build Tauri desktop bundle
+        if: ${{ !(matrix.target == 'i686-unknown-linux-gnu') }}
         working-directory: ${{ env.FRONTEND_DIR }}
         env:
           NEXT_PUBLIC_APP_STAGE: production
@@ -754,7 +755,7 @@ jobs:
         id: cosign_keys
         run: |
           # In production, use real keystore/HSM. For CI, generate ephemeral keys.
-          cosign generate-key-pair --kty rsa
+          cosign generate-key-pair
           echo "cosign_generated=true" >> "$GITHUB_OUTPUT"
 
       - name: Sign artifacts with Cosign
