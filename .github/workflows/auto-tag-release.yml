@@ -39,7 +39,8 @@ jobs:
 
           git fetch --tags --force
 
-          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)
+          # Ignore pre-release tags (e.g. v0.2.0-rc3) — find latest stable semver only
+          LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
           if [ -z "${LATEST_TAG:-}" ]; then
             NEXT_TAG="v0.1.0"
           else
