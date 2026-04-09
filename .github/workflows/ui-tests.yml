@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   checks: write
+  pull-requests: read
 
 jobs:
   ui-tests:
@@ -26,19 +27,24 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Install Playwright browsers
         working-directory: frontend
-        run: npx playwright install --with-deps chromium firefox webkit
+        run: bunx playwright install --with-deps chromium firefox webkit
 
       - name: Run Playwright UI tests
         working-directory: frontend
         continue-on-error: true
         run: |
-          npx playwright test --config=playwright.config.ts \
+          bunx playwright test --config=playwright.config.ts \
             --reporter=html,json,junit \
             --junit-output-file=test-results/junit.xml
 
@@ -69,12 +75,14 @@ jobs:
           retention-days: 14
 
       - name: Publish test results
-        if: always()
+        if: always() && hashFiles('frontend/test-results/junit.xml') != ''
+        continue-on-error: true
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: frontend/test-results/junit.xml
           check_name: "UI Test Results"
           comment_mode: always
+          action_fail: false
 
   accessibility-audit:
     name: Accessibility Audit
@@ -89,19 +97,24 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build static export
         working-directory: frontend
-        run: npm run build
+        run: bun run build
 
       - name: Run accessibility scan with Pa11y
         working-directory: frontend
         continue-on-error: true
         run: |
-          npx pa11y-ci --config .pa11yci.json || echo "Some accessibility issues found (non-blocking)"
+          bunx pa11y-ci --config .pa11yci.json || echo "Some accessibility issues found (non-blocking)"
 
       - name: Run Lighthouse audit
         uses: treosh/lighthouse-ci-action@v9
