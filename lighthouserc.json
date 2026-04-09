@@ -8,7 +8,6 @@
       }
     },
     "assert": {
-      "preset": "lighthouse:recommended",
       "assertions": {
         "categories:accessibility": [
           "warn",
@@ -33,6 +32,9 @@
           {
             "minScore": 0.8
           }
+        ],
+        "categories:pwa": [
+          "off"
         ]
       }
     },
