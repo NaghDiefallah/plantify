@@ -802,9 +802,10 @@ jobs:
             fi
           } > release_notes.md
 
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          DELIM="NOTES_$(date +%s%N)"
+          echo "notes<<${DELIM}" >> $GITHUB_OUTPUT
           cat release_notes.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "${DELIM}" >> $GITHUB_OUTPUT
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
