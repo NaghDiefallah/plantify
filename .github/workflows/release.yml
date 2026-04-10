@@ -392,38 +392,47 @@ jobs:
           mkdir -p release-assets/published
 
           # Android
-          find release-assets/android -type f \( -name "*.apk" -o -name "*.aab" \) 2>/dev/null | while read -r f; do
-            cp -f "$f" "release-assets/published/$(basename "$f")"
-          done
+          if [ -d release-assets/android ]; then
+            while IFS= read -r f; do
+              cp -f "$f" "release-assets/published/$(basename "$f")"
+            done < <(find release-assets/android -type f \( -name "*.apk" -o -name "*.aab" \) | sort)
+          fi
 
           # iOS (optional)
-          find release-assets/ios -type f -name "*.ipa" 2>/dev/null | head -n1 | while read -r f; do
-            cp -f "$f" "release-assets/published/plantify-${RELEASE_TAG}-ios-arm64.ipa"
-          done
+          if [ -d release-assets/ios ]; then
+            ipa_file=$(find release-assets/ios -type f -name "*.ipa" | head -n1 || true)
+            if [ -n "${ipa_file:-}" ]; then
+              cp -f "$ipa_file" "release-assets/published/plantify-${RELEASE_TAG}-ios-arm64.ipa"
+            fi
+          fi
 
           # Desktop: extract platform from artifact dir name and rename uniformly
-          while IFS= read -r file; do
-            rel="${file#release-assets/desktop/}"
-            artifact_dir="${rel%%/*}"
-            platform="${artifact_dir#desktop-}"
-            platform="${platform%-${RELEASE_TAG}}"
-            base=$(basename "$file")
-            ext="${base##*.}"
-            [[ "$base" == *.tar.gz ]] && ext="tar.gz"
-            [[ "$base" == *.AppImage ]] && ext="AppImage"
-            flavor=""
-            [[ "$base" == *portable* ]] && flavor="-portable"
-            cp -f "$file" "release-assets/published/plantify-${RELEASE_TAG}-${platform}${flavor}.${ext}"
-          done < <(find release-assets/desktop -type f \( \
-            -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" \
-            -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.tar.gz" \
-          \) 2>/dev/null | sort)
+          if [ -d release-assets/desktop ]; then
+            while IFS= read -r file; do
+              rel="${file#release-assets/desktop/}"
+              artifact_dir="${rel%%/*}"
+              platform="${artifact_dir#desktop-}"
+              platform="${platform%-${RELEASE_TAG}}"
+              base=$(basename "$file")
+              ext="${base##*.}"
+              [[ "$base" == *.tar.gz ]] && ext="tar.gz"
+              [[ "$base" == *.AppImage ]] && ext="AppImage"
+              flavor=""
+              [[ "$base" == *portable* ]] && flavor="-portable"
+              cp -f "$file" "release-assets/published/plantify-${RELEASE_TAG}-${platform}${flavor}.${ext}"
+            done < <(find release-assets/desktop -type f \( \
+              -name "*.exe" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" \
+              -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.tar.gz" \
+            \) | sort)
+          fi
 
           # Checksums
-          if ls release-assets/published/* >/dev/null 2>&1; then
-            cd release-assets/published
-            find . -maxdepth 1 -type f ! -name 'checksums.txt' | sort | xargs sha256sum > checksums.txt
-            ls -lh
+          mapfile -t checksum_files < <(find release-assets/published -maxdepth 1 -type f ! -name 'checksums.txt' | sort)
+          if [ "${#checksum_files[@]}" -gt 0 ]; then
+            printf '%s\n' "${checksum_files[@]}" | xargs sha256sum > release-assets/published/checksums.txt
+            ls -lh release-assets/published
+          else
+            echo "No publishable artifacts found; skipping checksum generation."
           fi
 
       - name: Publish GitHub release
