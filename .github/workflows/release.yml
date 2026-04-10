@@ -802,7 +802,6 @@ jobs:
             fi
           } > release_notes.md
 
-          cat release_notes.md >> $GITHUB_OUTPUT
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           cat release_notes.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
