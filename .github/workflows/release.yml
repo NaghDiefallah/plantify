@@ -439,7 +439,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          target_commitish: ${{ env.RELEASE_REF }}
           fail_on_unmatched_files: false
           generate_release_notes: true
           prerelease: ${{ contains(env.RELEASE_TAG, 'alpha') || contains(env.RELEASE_TAG, 'beta') || contains(env.RELEASE_TAG, 'rc') }}
