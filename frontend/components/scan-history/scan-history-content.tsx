@@ -45,6 +45,13 @@ export function ScanHistoryContent() {
   const t = useTranslations("dashboard");
   const [token, setToken] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<"all" | "24h" | "7d" | "30d" | "90d">("all");
+  const [domainFilter, setDomainFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "healthy" | "attention">("all");
+  const [minConfidence, setMinConfidence] = useState("0");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [notices, setNotices] = useState<Notice[]>([]);
 
   useEffect(() => {
@@ -71,14 +78,44 @@ export function ScanHistoryContent() {
     }
   }, [historyQuery.error, t]);
 
+  const domains = useMemo(() => {
+    const rows: ScanHistory[] = historyQuery.data ?? [];
+    return Array.from(new Set(rows.map((row) => row.domain).filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  }, [historyQuery.data]);
+
   const filteredRows = useMemo(() => {
     const rows: ScanHistory[] = historyQuery.data ?? [];
     const sortedRows = [...rows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const now = Date.now();
+    const timeThreshold =
+      timeFilter === "24h"
+        ? now - 24 * 60 * 60 * 1000
+        : timeFilter === "7d"
+          ? now - 7 * 24 * 60 * 60 * 1000
+          : timeFilter === "30d"
+            ? now - 30 * 24 * 60 * 60 * 1000
+            : timeFilter === "90d"
+              ? now - 90 * 24 * 60 * 60 * 1000
+              : null;
+    const minimumConfidenceValue = Number(minConfidence) / 100;
+
     return sortedRows.filter((row) => {
-      const haystack = `${row.plant_name ?? ""} ${row.disease ?? ""} ${row.disease_type} ${row.domain}`.toLowerCase();
-      return haystack.includes(query.toLowerCase());
+      const haystack = `${row.plant_name ?? ""} ${row.disease ?? ""} ${row.disease_type} ${row.domain} ${row.recommendation ?? ""}`.toLowerCase();
+      const matchesQuery = haystack.includes(query.toLowerCase());
+      const createdAt = new Date(row.created_at).getTime();
+      const diseaseLabel = (row.disease || row.disease_type).toLowerCase();
+      const matchesTime = timeThreshold === null || createdAt >= timeThreshold;
+      const matchesDomain = domainFilter === "all" || row.domain === domainFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "healthy" ? diseaseLabel.includes("healthy") : !diseaseLabel.includes("healthy"));
+      const matchesConfidence = row.confidence_score >= minimumConfidenceValue;
+      const matchesStart = !startDate || createdAt >= new Date(`${startDate}T00:00:00`).getTime();
+      const matchesEnd = !endDate || createdAt <= new Date(`${endDate}T23:59:59`).getTime();
+
+      return matchesQuery && matchesTime && matchesDomain && matchesStatus && matchesConfidence && matchesStart && matchesEnd;
     });
-  }, [historyQuery.data, query]);
+  }, [domainFilter, endDate, historyQuery.data, minConfidence, query, startDate, statusFilter, timeFilter]);
 
   return (
     <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
@@ -116,16 +153,137 @@ export function ScanHistoryContent() {
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("history.title")}</h3>
-        <label className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("history.searchPlaceholder")}
-            className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
-          />
-        </label>
+        <div className="flex w-full flex-col gap-3 lg:max-w-3xl">
+          <div className="flex flex-col gap-3 md:flex-row">
+            <label className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("history.searchPlaceholder")}
+                className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen((current) => !current)}
+              className="h-10 rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--text-primary)] hover:border-[#22c55e]/50"
+            >
+              {advancedOpen ? "Hide filters" : "Advanced search"}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {[
+              {value: "all", label: "All time"},
+              {value: "24h", label: "24h"},
+              {value: "7d", label: "7d"},
+              {value: "30d", label: "30d"},
+              {value: "90d", label: "90d"}
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setTimeFilter(option.value as typeof timeFilter)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition",
+                  timeFilter === option.value
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)]"
+                    : "border-[var(--card-border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[#22c55e]/40"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {advancedOpen ? (
+        <div className="mb-4 grid gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--bg-primary)] p-4 md:grid-cols-2 xl:grid-cols-5">
+          <label className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Domain</span>
+            <select
+              value={domainFilter}
+              onChange={(event) => setDomainFilter(event.target.value)}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            >
+              <option value="all">All domains</option>
+              {domains.map((domain) => (
+                <option key={domain} value={domain}>{domain}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            >
+              <option value="all">All outcomes</option>
+              <option value="healthy">Healthy only</option>
+              <option value="attention">Needs attention</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Min confidence</span>
+            <select
+              value={minConfidence}
+              onChange={(event) => setMinConfidence(event.target.value)}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            >
+              <option value="0">Any confidence</option>
+              <option value="50">50%+</option>
+              <option value="70">70%+</option>
+              <option value="85">85%+</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Start date</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            />
+          </label>
+
+          <label className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">End date</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <div className="mb-4 flex items-center justify-between gap-3 text-xs text-[var(--text-tertiary)]">
+        <span>{filteredRows.length} result{filteredRows.length === 1 ? "" : "s"}</span>
+        {(query || domainFilter !== "all" || statusFilter !== "all" || minConfidence !== "0" || startDate || endDate || timeFilter !== "all") ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setTimeFilter("all");
+              setDomainFilter("all");
+              setStatusFilter("all");
+              setMinConfidence("0");
+              setStartDate("");
+              setEndDate("");
+            }}
+            className="font-semibold text-[var(--text-primary)] hover:text-[#22c55e]"
+          >
+            Reset filters
+          </button>
+        ) : null}
       </div>
 
       <div className="space-y-3">

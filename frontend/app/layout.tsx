@@ -10,7 +10,6 @@ import hiMessages from "@/messages/hi.json";
 import zhMessages from "@/messages/zh.json";
 
 import {AppProviders} from "@/components/providers/app-providers";
-import {DesktopTitleBar} from "@/components/layout/DesktopTitleBar";
 import {LocaleSync} from "@/components/ui/locale-sync";
 import {routing, type AppLocale} from "@/i18n/routing";
 import "./globals.css";
@@ -63,7 +62,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased">
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
           <AppProviders>
-            <DesktopTitleBar title="Plantify" subtitle="Desktop" />
             <LocaleSync />
             {children}
           </AppProviders>

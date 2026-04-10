@@ -10,18 +10,19 @@ import {
   fetchProfile,
   fetchUsers,
   getStoredAccessToken,
+  getStoredProfile,
   getStoredRole,
   logoutCurrentSession,
   storeUserRole,
+  storeUserProfile,
   updateUserRole
 } from "@/lib/api";
 import {Button} from "@/components/ui/button";
+import {DashboardShell} from "@/components/dashboard/dashboard-shell";
 import {FarmerDashboard} from "@/components/farmer/farmer-dashboard";
-import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
-import {LocaleSwitcher} from "@/components/ui/locale-switcher";
-import {ThemeToggle} from "@/components/ui/theme-toggle";
+import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {cn} from "@/lib/utils";
-import {Link} from "@/i18n/navigation";
+import {isNativeMobilePlatform} from "@/lib/platform";
 
 type NoticeKind = "error" | "success" | "info" | "warn";
 
@@ -221,6 +222,7 @@ export function RoleDashboard() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBootLoader, setShowBootLoader] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -310,22 +312,34 @@ export function RoleDashboard() {
   }, [navItems, role]);
 
   useEffect(() => {
-    setSidebarCollapsed(window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true");
-
+    const cachedProfile = getStoredProfile();
+    if (cachedProfile) {
+      setUser(cachedProfile);
+      setRole(cachedProfile.role);
+      setLoading(false);
+    }
     const cachedRole = getStoredRole();
-    if (cachedRole) {
+    if (!cachedProfile && cachedRole) {
       setRole(cachedRole);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("plantify-dashboard-sidebar-collapsed", String(sidebarCollapsed));
-  }, [sidebarCollapsed]);
+    if (!loading || role !== null) {
+      setShowBootLoader(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowBootLoader(true);
+    }, isNativeMobilePlatform() ? 1800 : 450);
+
+    return () => window.clearTimeout(timer);
+  }, [loading, role]);
 
   useEffect(() => {
     let cancelled = false;
-    let minLoadingTimer: NodeJS.Timeout | null = null;
 
     const run = async () => {
       try {
@@ -353,6 +367,7 @@ export function RoleDashboard() {
         setUser(profile);
         setRole(profile.role);
         storeUserRole(profile.role);
+        storeUserProfile(profile);
 
         if (profile.role === "admin" || profile.role === "developer") {
           const allUsers = await fetchUsers(accessToken);
@@ -361,13 +376,8 @@ export function RoleDashboard() {
           }
         }
 
-        // Ensure minimum loading state duration on slower networks
-        if (minLoadingTimer === null) {
-          minLoadingTimer = setTimeout(() => {
-            if (!cancelled) {
-              setLoading(false);
-            }
-          }, 300);
+        if (!cancelled) {
+          setLoading(false);
         }
       } catch (err) {
         if (!cancelled) {
@@ -394,9 +404,6 @@ export function RoleDashboard() {
 
     return () => {
       cancelled = true;
-      if (minLoadingTimer) {
-        clearTimeout(minLoadingTimer);
-      }
     };
   }, []);
 
@@ -427,6 +434,10 @@ export function RoleDashboard() {
 
   // Only block on a loading spinner when we have no cached role to display yet.
   if (loading && role === null) {
+    if (!showBootLoader) {
+      return <main className="min-h-[100dvh] bg-[var(--bg-primary)]" />;
+    }
+
     return (
       <main className="flex min-h-[100svh] items-center justify-center px-4">
         <div className="flex items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 text-sm text-[var(--text-secondary)] shadow-sm">
@@ -463,73 +474,34 @@ export function RoleDashboard() {
   }
 
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-[var(--bg-primary)] transition-[padding] duration-300",
-        rtl
-          ? sidebarCollapsed
-            ? "lg:pr-24"
-            : "lg:pr-[22rem]"
-          : sidebarCollapsed
-            ? "lg:pl-24"
-            : "lg:pl-[22rem]"
-      )}
-    >
+    <>
       <NotificationStack notices={notices} onDismiss={(id) => setNotices((prev) => prev.filter((notice) => notice.id !== id))} />
-      {rtl ? null : (
-        <DashboardSidebar
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-          navItems={navItems}
-          activeSection={activeSection}
-          onSectionNavigate={setActiveSection}
-        />
-      )}
-      <main className="min-w-0 px-4 pb-8 pt-4 md:px-6">
-        <div className="mx-auto max-w-7xl">
-          <header className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-sm font-semibold text-[var(--text-primary)]">
-                {(user?.full_name || user?.email || "U").charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{user?.full_name || user?.email || "User"}</p>
-                {role ? <p className="text-xs text-[var(--text-tertiary)]">{t(`sidebar.role.${role}`)}</p> : null}
-              </div>
+      <DashboardShell
+        navItems={navItems}
+        activeSection={activeSection}
+        onSectionNavigate={setActiveSection}
+        topBarLead={
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-sm font-semibold text-[var(--text-primary)]">
+              {(user?.full_name || user?.email || "U").charAt(0).toUpperCase()}
             </div>
-
-            <div className="flex items-center gap-2">
-              <Link
-                href="/settings"
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:opacity-90"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                Settings
-              </Link>
-              <ThemeToggle />
-              <LocaleSwitcher />
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{user?.full_name || user?.email || "User"}</p>
+              {role ? <p className="text-xs text-[var(--text-tertiary)]">{t(`sidebar.role.${role}`)}</p> : null}
             </div>
-          </header>
+          </div>
+        }
+        contentClassName="overflow-y-auto pb-4"
+      >
+        {role === "expert" ? <ExpertPanel /> : null}
+        {role === "admin" ? <AdminPanel /> : null}
+        {role === "developer" ? <DeveloperPanel user={user} /> : null}
+        {role === "farmer" ? <FarmerPanel /> : null}
 
-          {role === "expert" ? <ExpertPanel /> : null}
-          {role === "admin" ? <AdminPanel /> : null}
-          {role === "developer" ? <DeveloperPanel user={user} /> : null}
-          {role === "farmer" ? <FarmerPanel /> : null}
-
-          {role === "admin" || role === "developer" ? (
-            <RoleManager users={users} currentUser={user} onUpdate={updateRole} />
-          ) : null}
-        </div>
-      </main>
-      {rtl ? (
-        <DashboardSidebar
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-          navItems={navItems}
-          activeSection={activeSection}
-          onSectionNavigate={setActiveSection}
-        />
-      ) : null}
-    </div>
+        {role === "admin" || role === "developer" ? (
+          <RoleManager users={users} currentUser={user} onUpdate={updateRole} />
+        ) : null}
+      </DashboardShell>
+    </>
   );
 }

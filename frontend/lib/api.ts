@@ -15,6 +15,7 @@ const API_BASE_STORAGE_KEY = "plantify_api_base";
 const ACCESS_TOKEN_KEY = "plantify_access_token";
 const REFRESH_TOKEN_KEY = "plantify_refresh_token";
 const ROLE_KEY = "plantify_user_role";
+const PROFILE_KEY = "plantify_user_profile";
 export const AUTH_STATE_CHANGED_EVENT = "plantify-auth-state-changed";
 
 const REQUEST_TIMEOUT_MS = 15000;
@@ -52,6 +53,7 @@ export function clearStoredTokens(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   clearStoredRole();
+  clearStoredProfile();
   clearProfileCache();
   emitAuthStateChanged();
 }
@@ -70,6 +72,39 @@ export function storeUserRole(role: UserRole): void {
 
 export function clearStoredRole(): void {
   window.localStorage.removeItem(ROLE_KEY);
+}
+
+export function getStoredProfile(): UserProfile | null {
+  const raw = window.localStorage.getItem(PROFILE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<UserProfile>;
+    if (
+      typeof parsed.id === "string" &&
+      typeof parsed.email === "string" &&
+      typeof parsed.full_name === "string" &&
+      (parsed.role === "farmer" || parsed.role === "expert" || parsed.role === "admin" || parsed.role === "developer") &&
+      typeof parsed.created_at === "string"
+    ) {
+      return parsed as UserProfile;
+    }
+  } catch {
+    // Ignore corrupted profile cache.
+  }
+
+  window.localStorage.removeItem(PROFILE_KEY);
+  return null;
+}
+
+export function storeUserProfile(profile: UserProfile): void {
+  window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+export function clearStoredProfile(): void {
+  window.localStorage.removeItem(PROFILE_KEY);
 }
 
 export function inferRoleFromProfile(profile: UserProfile): UserRole {
@@ -477,6 +512,7 @@ export async function fetchProfile(token: string): Promise<UserProfile> {
 
       const profile = (await res.json()) as UserProfile;
       _profileCache = { token, profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
+      storeUserProfile(profile);
       return profile;
     } finally {
       _inflightProfile.delete(token);
@@ -525,7 +561,9 @@ export async function updateUserRole(input: {
     await handleApiError(res, "users/role", "Failed to update user role");
   }
 
-  return res.json() as Promise<UserProfile>;
+  const profile = (await res.json()) as UserProfile;
+  storeUserProfile(profile);
+  return profile;
 }
 
 export async function redeemRoleByCode(input: {
@@ -548,7 +586,9 @@ export async function redeemRoleByCode(input: {
     await handleApiError(res, "users/role/by-code", "Failed to apply role code");
   }
 
-  return res.json() as Promise<UserProfile>;
+  const profile = (await res.json()) as UserProfile;
+  storeUserProfile(profile);
+  return profile;
 }
 
 export async function fetchHistory(token: string): Promise<ScanHistory[]> {

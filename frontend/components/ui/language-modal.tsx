@@ -69,6 +69,7 @@ export function LanguageModalButton({compact = true}: {compact?: boolean}) {
         aria-label="Open language selector"
       >
         {compact ? <Languages className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+        {compact ? null : <span className="font-medium text-[var(--text-primary)]">{activeLabel}</span>}
       </button>
 
       {mounted && open ? createPortal((

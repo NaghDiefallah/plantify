@@ -1,6 +1,5 @@
 "use client";
 
-import type {CSSProperties} from "react";
 import {useEffect, useState} from "react";
 import {Minus, Square, SquareStack, X} from "lucide-react";
 
@@ -16,14 +15,6 @@ type DesktopTitleBarProps = {
   onToggleMaximize?: () => void;
   onClose?: () => void;
 };
-
-const dragRegionStyle = {
-  WebkitAppRegion: "drag"
-} as CSSProperties;
-
-const noDragStyle = {
-  WebkitAppRegion: "no-drag"
-} as CSSProperties;
 
 export function DesktopTitleBar({
   className,
@@ -117,22 +108,21 @@ export function DesktopTitleBar({
 
   return (
     <header
-      data-tauri-drag-region
-      style={dragRegionStyle}
       className={cn(
-        "sticky top-0 z-50 flex h-12 items-center justify-between border-b border-white/10 bg-zinc-950/88 px-3 backdrop-blur-xl",
+        "flex h-12 items-center justify-between border-b border-white/10 bg-zinc-950/92 px-3 backdrop-blur-xl",
         className
       )}
     >
-      <div className="flex items-center gap-3">
+      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3 pr-3">
         <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/90 shadow-[0_0_12px_rgba(74,222,128,0.45)]" />
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold tracking-[0.14em] text-zinc-100 uppercase">{title}</span>
-          <span className="text-[11px] text-zinc-400">{subtitle}</span>
+        <div className="min-w-0 flex flex-col" onDoubleClick={() => void handleToggleMaximize()}>
+          <span className="truncate text-sm font-semibold uppercase tracking-[0.14em] text-zinc-100">{title}</span>
+          <span className="truncate text-[11px] text-zinc-400">{subtitle}</span>
         </div>
+        <div data-tauri-drag-region className="flex-1" />
       </div>
 
-      <div className="flex items-center gap-1.5" style={noDragStyle}>
+      <div className="flex items-center gap-1.5">
         <Button
           type="button"
           variant="ghost"
