@@ -143,12 +143,12 @@ function SidePanelContent({
 }) {
   const dashboardLabel = "Dashboard";
   const logoutLabel = "Logout";
+  const workflowItems = navItems.filter((item) => !["scan", "analyze", "act", "scan-history"].includes(item.id));
 
   const quickLinks = [
     {id: "dashboard", label: "Home", href: "/dashboard", icon: Home},
     {id: "chat", label: "Chat", href: "/chat", icon: MessageSquareHeart},
-    {id: "community", label: "Community", href: "/community", icon: Users},
-    {id: "history", label: "History", href: "/scan-history", icon: History}
+    {id: "community", label: "Community", href: "/community", icon: Users}
   ];
 
   return (
@@ -178,9 +178,9 @@ function SidePanelContent({
       </button>
 
       <div className={cn("w-full rounded-[1.5rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[0_16px_36px_rgba(15,23,42,0.06)]", collapsed && "w-auto border-none bg-transparent p-0 shadow-none")}>
-        {collapsed ? null : <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p>}
-        <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
-          {navItems.map((item) => {
+        {workflowItems.length > 0 && !collapsed ? <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p> : null}
+        {workflowItems.length > 0 ? <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
+          {workflowItems.map((item) => {
             const Icon = iconForNavItem(item.icon);
             const isActive = item.href ? pathname === item.href || pathname.startsWith(`${item.href}#`) : activeSection === item.id;
 
@@ -194,9 +194,9 @@ function SidePanelContent({
               </li>
             );
           })}
-        </ul>
+        </ul> : null}
 
-        {collapsed ? null : <p className="mt-4 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Navigate</p>}
+        {collapsed ? null : <p className={cn("px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]", workflowItems.length > 0 && "mt-4")}>Navigate</p>}
         <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
           {quickLinks.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);

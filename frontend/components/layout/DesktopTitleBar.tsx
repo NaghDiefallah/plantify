@@ -2,7 +2,7 @@
 
 import type {CSSProperties} from "react";
 import {useEffect, useState} from "react";
-import {Minus, Square, X} from "lucide-react";
+import {Minus, Square, SquareStack, X} from "lucide-react";
 
 import {Button} from "@/components/ui/button";
 import {isDesktopShell} from "@/lib/platform";
@@ -34,10 +34,82 @@ export function DesktopTitleBar({
   onClose
 }: DesktopTitleBarProps) {
   const [desktopShell, setDesktopShell] = useState(false);
+  const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
     setDesktopShell(isDesktopShell());
   }, []);
+
+  useEffect(() => {
+    if (!desktopShell) {
+      return;
+    }
+
+    let mounted = true;
+    void (async () => {
+      try {
+        const {getCurrentWindow} = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        const isWindowMaximized = await appWindow.isMaximized();
+        if (mounted) {
+          setMaximized(isWindowMaximized);
+        }
+      } catch {
+        if (mounted) {
+          setMaximized(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [desktopShell]);
+
+  const handleMinimize = async () => {
+    if (onMinimize) {
+      onMinimize();
+      return;
+    }
+
+    try {
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
+    } catch {
+      // Ignore when running in web mode.
+    }
+  };
+
+  const handleToggleMaximize = async () => {
+    if (onToggleMaximize) {
+      onToggleMaximize();
+      return;
+    }
+
+    try {
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      const appWindow = getCurrentWindow();
+      await appWindow.toggleMaximize();
+      const isWindowMaximized = await appWindow.isMaximized();
+      setMaximized(isWindowMaximized);
+    } catch {
+      // Ignore when running in web mode.
+    }
+  };
+
+  const handleClose = async () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+
+    try {
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
+    } catch {
+      // Ignore when running in web mode.
+    }
+  };
 
   if (!desktopShell) {
     return null;
@@ -67,7 +139,7 @@ export function DesktopTitleBar({
           size="icon"
           aria-label="Minimize window"
           className="h-8 w-8 rounded-md text-zinc-300 hover:bg-white/8 hover:text-white"
-          onClick={onMinimize}
+          onClick={() => void handleMinimize()}
         >
           <Minus className="h-4 w-4" />
         </Button>
@@ -77,9 +149,9 @@ export function DesktopTitleBar({
           size="icon"
           aria-label="Toggle window size"
           className="h-8 w-8 rounded-md text-zinc-300 hover:bg-white/8 hover:text-white"
-          onClick={onToggleMaximize}
+          onClick={() => void handleToggleMaximize()}
         >
-          <Square className="h-3.5 w-3.5" />
+          {maximized ? <SquareStack className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
         </Button>
         <Button
           type="button"
@@ -87,7 +159,7 @@ export function DesktopTitleBar({
           size="icon"
           aria-label="Close window"
           className="h-8 w-8 rounded-md text-zinc-300 hover:bg-rose-500/18 hover:text-rose-100"
-          onClick={onClose}
+          onClick={() => void handleClose()}
         >
           <X className="h-4 w-4" />
         </Button>
