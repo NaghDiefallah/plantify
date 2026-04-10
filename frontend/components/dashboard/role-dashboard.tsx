@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import {useEffect, useMemo, useState} from "react";
-import {AlertCircle, CheckCircle2, Code2, Info, Loader2, ShieldCheck, Users, X} from "lucide-react";
+import {AlertCircle, CheckCircle2, Code2, Info, Loader2, Settings2, ShieldCheck, Users, X} from "lucide-react";
 import {useLocale, useTranslations} from "next-intl";
 
 import type {UserProfile, UserRole} from "@/lib/types";
@@ -21,6 +21,7 @@ import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/da
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
 import {cn} from "@/lib/utils";
+import {Link} from "@/i18n/navigation";
 
 type NoticeKind = "error" | "success" | "info" | "warn";
 
@@ -498,6 +499,13 @@ export function RoleDashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href="/settings"
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:opacity-90"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Settings
+              </Link>
               <ThemeToggle />
               <LocaleSwitcher />
             </div>

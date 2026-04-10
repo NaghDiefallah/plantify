@@ -148,7 +148,9 @@ function SidePanelContent({
   const quickLinks = [
     {id: "dashboard", label: "Home", href: "/dashboard", icon: Home},
     {id: "chat", label: "Chat", href: "/chat", icon: MessageSquareHeart},
-    {id: "community", label: "Community", href: "/community", icon: Users}
+    {id: "community", label: "Community", href: "/community", icon: Users},
+    {id: "history", label: "History", href: "/scan-history", icon: History},
+    {id: "settings", label: "Settings", href: "/settings", icon: Settings2}
   ];
 
   return (
@@ -177,7 +179,7 @@ function SidePanelContent({
         )}
       </button>
 
-      <div className={cn("w-full rounded-[1.5rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[0_16px_36px_rgba(15,23,42,0.06)]", collapsed && "w-auto border-none bg-transparent p-0 shadow-none")}>
+      <div className={cn("w-full rounded-[1.6rem] border border-[var(--card-border)] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(246,248,247,0.92))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(145deg,rgba(24,24,27,0.95),rgba(39,39,42,0.88))]", collapsed && "w-auto border-none bg-transparent p-0 shadow-none")}>
         {workflowItems.length > 0 && !collapsed ? <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p> : null}
         {workflowItems.length > 0 ? <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
           {workflowItems.map((item) => {
@@ -196,7 +198,12 @@ function SidePanelContent({
           })}
         </ul> : null}
 
-        {collapsed ? null : <p className={cn("px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]", workflowItems.length > 0 && "mt-4")}>Navigate</p>}
+        {collapsed ? null : (
+          <>
+            {workflowItems.length > 0 ? <div className="my-3 h-px bg-[var(--card-border)]/80" /> : null}
+            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Navigate</p>
+          </>
+        )}
         <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
           {quickLinks.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);

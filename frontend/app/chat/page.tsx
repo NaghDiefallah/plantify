@@ -6,6 +6,7 @@ import {useEffect, useMemo, useState} from "react";
 import {ChatInterface} from "@/components/chat/chat-interface";
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
+import {Link} from "@/i18n/navigation";
 
 export default function ChatPage() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
@@ -40,6 +41,12 @@ export default function ChatPage() {
 					</div>
 
 					<div className="flex items-center gap-2">
+						<Link
+							href="/settings"
+							className="inline-flex items-center rounded-xl border border-[var(--card-border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:opacity-90"
+						>
+							Settings
+						</Link>
 						<ThemeToggle />
 					</div>
 				</header>
