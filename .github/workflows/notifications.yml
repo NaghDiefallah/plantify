@@ -3,14 +3,12 @@ name: Telegram Notifications
 on:
   workflow_run:
     workflows:
-      - "Build, Publish, and Deploy"
       - "Cross-Platform Release"
-      - "Generate SBOM (SPDX)"
-      - "Generate SLSA Provenance"
-      - "UI Tests (Headless)"
-      - "Deploy Documentation"
-      - "Auto Tag Release"
     types: [completed]
+
+concurrency:
+  group: telegram-notify-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
 
 permissions:
   actions: read
@@ -21,7 +19,7 @@ jobs:
     name: Send Telegram Notification
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    if: github.event.workflow_run.name != 'Telegram Notifications'
+    if: github.event.workflow_run.name == 'Cross-Platform Release'
 
     steps:
       - name: Validate Telegram secrets

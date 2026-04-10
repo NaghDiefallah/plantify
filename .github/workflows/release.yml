@@ -161,7 +161,7 @@ jobs:
     name: iOS
     runs-on: macos-latest
     needs: web-assets
-    if: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 != '' }}
+    if: ${{ vars.ENABLE_IOS_RELEASE == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
