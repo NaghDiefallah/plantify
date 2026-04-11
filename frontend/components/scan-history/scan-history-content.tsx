@@ -67,7 +67,7 @@ export function ScanHistoryContent() {
   };
 
   const historyQuery = useQuery({
-    queryKey: ["history"],
+    queryKey: ["history", token],
     queryFn: () => fetchHistory(token ?? ""),
     enabled: Boolean(token)
   });

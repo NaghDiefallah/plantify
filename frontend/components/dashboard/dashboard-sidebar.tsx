@@ -81,7 +81,7 @@ function NavLink({
       <Icon className="h-4 w-4 shrink-0" />
       {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
       {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
+        <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
           {label}
         </span>
       ) : null}
@@ -118,7 +118,7 @@ function NavButton({
       <Icon className="h-4 w-4 shrink-0" />
       {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
       {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
+        <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
           {label}
         </span>
       ) : null}
@@ -216,18 +216,6 @@ function SidePanelContent({
         </ul>
       </div>
 
-      <div className={cn("w-full rounded-[1.35rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3", collapsed && "hidden")}>
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
-            <History className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">History</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--text-tertiary)]">Review prior detections, confidence, and action history without leaving the workflow.</p>
-          </div>
-        </div>
-      </div>
-
       <div className="flex-1" />
 
       <Button
@@ -316,17 +304,13 @@ export function DashboardSidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 z-40 w-[min(86vw,21rem)] transform bg-[var(--bg-primary)] transition-[transform,width] duration-300 ease-in-out lg:w-[22rem]",
+          "fixed inset-y-0 z-[60] w-[min(86vw,21rem)] transform bg-[var(--bg-primary)] transition-[transform,width] duration-300 ease-in-out lg:left-0 lg:border-r lg:border-[var(--card-border)] lg:w-[22rem]",
           effectiveCollapsed ? "lg:w-24" : "lg:w-[22rem]",
-          rtl ? "right-0 border-l" : "left-0 border-r",
-          "border-[var(--card-border)]",
-          rtl
-            ? isOpen
-              ? "translate-x-0"
-              : "translate-x-full lg:translate-x-0"
-            : isOpen
-              ? "translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
+          isDesktop
+            ? "left-0 border-r border-[var(--card-border)] translate-x-0"
+            : rtl
+              ? cn("right-0 border-l border-[var(--card-border)]", isOpen ? "translate-x-0" : "translate-x-full")
+              : cn("left-0 border-r border-[var(--card-border)]", isOpen ? "translate-x-0" : "-translate-x-full")
         )}
       >
         <div className="flex items-center justify-between border-b border-[var(--card-border)] p-4 lg:hidden">
@@ -336,7 +320,12 @@ export function DashboardSidebar({
           </button>
         </div>
 
-        <div className={cn("h-full overscroll-contain pb-6 lg:pb-0", effectiveCollapsed ? "overflow-y-hidden" : "overflow-y-auto") }>
+        <div
+          className={cn(
+            "h-full overscroll-contain pb-6 lg:pb-0",
+            effectiveCollapsed ? "overflow-visible" : "overflow-y-auto"
+          )}
+        >
           <SidePanelContent
             collapsed={effectiveCollapsed}
             navItems={navItems}

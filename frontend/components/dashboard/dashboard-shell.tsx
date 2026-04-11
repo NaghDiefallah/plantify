@@ -2,8 +2,7 @@
 
 import type {ReactNode} from "react";
 import {useEffect, useState} from "react";
-import {Settings2} from "lucide-react";
-import {useLocale} from "next-intl";
+import {Settings} from "lucide-react";
 
 import {Link, usePathname} from "@/i18n/navigation";
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
@@ -12,6 +11,20 @@ import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
 import {isDesktopShell} from "@/lib/platform";
 import {cn} from "@/lib/utils";
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "plantify-dashboard-sidebar-collapsed";
+
+function getInitialSidebarCollapsed(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 type DashboardShellProps = {
   navItems: DashboardNavItem[];
@@ -36,28 +49,27 @@ export function DashboardShell({
   topBarClassName,
   showLocaleSwitcher = true
 }: DashboardShellProps) {
-  const locale = useLocale();
   const pathname = usePathname();
-  const rtl = locale === "ar";
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(getInitialSidebarCollapsed);
   const [desktopShell, setDesktopShell] = useState(false);
 
   useEffect(() => {
-    setSidebarCollapsed(window.localStorage.getItem("plantify-dashboard-sidebar-collapsed") === "true");
     setDesktopShell(isDesktopShell());
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("plantify-dashboard-sidebar-collapsed", String(sidebarCollapsed));
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+    } catch {
+      // Ignore persistence failures (private mode/storage restrictions).
+    }
   }, [sidebarCollapsed]);
 
-  const shellPaddingClass = rtl
-    ? sidebarCollapsed
-      ? "lg:pr-24"
-      : "lg:pr-[22rem]"
-    : sidebarCollapsed
-      ? "lg:pl-24"
-      : "lg:pl-[22rem]";
+  const shellPaddingClass = sidebarCollapsed ? "lg:pl-24" : "lg:pl-[22rem]";
 
   const sidebar = (
     <DashboardSidebar
@@ -70,13 +82,13 @@ export function DashboardShell({
   );
 
   return (
-    <div className={cn("relative min-h-[100dvh] overflow-hidden bg-[var(--bg-primary)]", desktopShell && "pt-12", shellPaddingClass)}>
-      {desktopShell ? <DesktopTitleBar className="fixed inset-x-0 top-0 z-[80]" title="Plantify" subtitle="Desktop Workspace" /> : null}
+    <div className={cn("relative min-h-[100dvh] overflow-hidden bg-[var(--bg-primary)]", shellPaddingClass)}>
+      {sidebar}
 
-      {rtl ? null : sidebar}
-
-      <main className={cn("min-w-0 px-4 pb-4 pt-4 md:px-6", desktopShell ? "h-[calc(100dvh-3rem)]" : "min-h-[100dvh]", pageClassName)}>
+      <main className={cn("min-w-0 px-4 pb-4 pt-4 md:px-6 min-h-[100dvh]", pageClassName)}>
         <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
+          {desktopShell ? <DesktopTitleBar className="mb-4 shrink-0" title="Plantify" subtitle="Desktop Workspace" /> : null}
+
           <header
             className={cn(
               "mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-[1.75rem] border border-[var(--card-border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,245,0.9))] px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(39,39,42,0.92))]",
@@ -89,14 +101,15 @@ export function DashboardShell({
               <Link
                 href="/settings"
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                  "inline-flex h-9 w-9 items-center justify-center rounded-xl border transition",
                   pathname === "/settings"
                     ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)]"
                     : "border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:opacity-90"
                 )}
+                aria-label="Open settings"
+                title="Settings"
               >
-                <Settings2 className="h-3.5 w-3.5" />
-                Settings
+                <Settings className="h-4 w-4" />
               </Link>
               <ThemeToggle />
               {showLocaleSwitcher ? <LocaleSwitcher /> : null}
@@ -107,7 +120,6 @@ export function DashboardShell({
         </div>
       </main>
 
-      {rtl ? sidebar : null}
     </div>
   );
 }

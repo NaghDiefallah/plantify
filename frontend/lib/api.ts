@@ -1,10 +1,21 @@
 import type {
   AuthTokens,
+  CommunityCreateCommentInput,
+  CommunityCreatePostInput,
+  CommunityFeedResponse,
+  CommunityFeedSort,
+  CommunityPost,
+  CommunityReport,
+  CommunityReportStatus,
+  CommunityThreadResponse,
+  CommunityVoteSummary,
   DashboardStats,
   DetectionResult,
   RoleCodeUpdatePayload,
   ScanHistory,
   UserProfile,
+  UserProfileUpdatePayload,
+  UserRecognitionUpdatePayload,
   UserRole,
   UserRoleUpdatePayload
 } from "@/lib/types";
@@ -36,10 +47,16 @@ function isLocalHostname(hostname: string): boolean {
 }
 
 export function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function getStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
   return window.localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
@@ -59,6 +76,9 @@ export function clearStoredTokens(): void {
 }
 
 export function getStoredRole(): UserRole | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
   const value = window.localStorage.getItem(ROLE_KEY);
   if (value === "farmer" || value === "expert" || value === "admin" || value === "developer") {
     return value;
@@ -75,6 +95,9 @@ export function clearStoredRole(): void {
 }
 
 export function getStoredProfile(): UserProfile | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
   const raw = window.localStorage.getItem(PROFILE_KEY);
   if (!raw) {
     return null;
@@ -86,7 +109,15 @@ export function getStoredProfile(): UserProfile | null {
       typeof parsed.id === "string" &&
       typeof parsed.email === "string" &&
       typeof parsed.full_name === "string" &&
+      (parsed.avatar_url === null || typeof parsed.avatar_url === "string" || typeof parsed.avatar_url === "undefined") &&
+      (parsed.bio === null || typeof parsed.bio === "string" || typeof parsed.bio === "undefined") &&
       (parsed.role === "farmer" || parsed.role === "expert" || parsed.role === "admin" || parsed.role === "developer") &&
+      typeof parsed.region_label === "string" &&
+      typeof parsed.private_feed_enabled === "boolean" &&
+      typeof parsed.is_community_moderator === "boolean" &&
+      typeof parsed.is_verified === "boolean" &&
+      Array.isArray(parsed.badges) &&
+      typeof parsed.green_thumb_karma === "number" &&
       typeof parsed.created_at === "string"
     ) {
       return parsed as UserProfile;
@@ -540,6 +571,23 @@ export async function fetchUsers(token: string): Promise<UserProfile[]> {
   return res.json() as Promise<UserProfile[]>;
 }
 
+export async function fetchUserProfile(input: { token: string; userId: string }): Promise<UserProfile> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/users/${input.userId}/profile`, {
+      headers: {
+        ...authHeaders(authToken)
+      }
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "users/profile", "Failed to load profile");
+  }
+
+  return res.json() as Promise<UserProfile>;
+}
+
 export async function updateUserRole(input: {
   token: string;
   userId: string;
@@ -563,6 +611,61 @@ export async function updateUserRole(input: {
 
   const profile = (await res.json()) as UserProfile;
   storeUserProfile(profile);
+  return profile;
+}
+
+export async function updateMyProfile(input: {
+  token: string;
+  payload: UserProfileUpdatePayload;
+}): Promise<UserProfile> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/users/me/profile`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify(input.payload)
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "users/me/profile", "Failed to update profile");
+  }
+
+  const profile = (await res.json()) as UserProfile;
+  _profileCache = { token: input.token, profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
+  storeUserProfile(profile);
+  return profile;
+}
+
+export async function updateUserRecognition(input: {
+  token: string;
+  userId: string;
+  payload: UserRecognitionUpdatePayload;
+}): Promise<UserProfile> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/users/${input.userId}/recognition`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify(input.payload)
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "users/recognition", "Failed to update recognition");
+  }
+
+  const profile = (await res.json()) as UserProfile;
+  if (_profileCache?.profile.id === profile.id) {
+    _profileCache = { token: _profileCache.token, profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
+    storeUserProfile(profile);
+  }
   return profile;
 }
 
@@ -671,4 +774,312 @@ export async function detectPlant(input: {
   }
 
   return res.json() as Promise<DetectionResult>;
+}
+
+export async function fetchCommunityFeed(input: {
+  sort: CommunityFeedSort;
+  cursor?: string;
+  limit?: number;
+  region?: string;
+  token?: string;
+}): Promise<CommunityFeedResponse> {
+  const params = new URLSearchParams({
+    sort: input.sort,
+    limit: String(input.limit ?? 20)
+  });
+  if (input.cursor) params.set("cursor", input.cursor);
+  if (input.region) params.set("region", input.region);
+
+  const token = input.token ?? getStoredAccessToken() ?? undefined;
+  const res = await apiFetch(`${API_BASE}/community/feed?${params.toString()}`, {
+    headers: {
+      ...authHeaders(token)
+    }
+  });
+
+  if (!res.ok) {
+    await handleApiError(res, "community/feed", "Failed to load community feed");
+  }
+
+  return res.json() as Promise<CommunityFeedResponse>;
+}
+
+export async function fetchPrivateCommunityFeed(input: {
+  cursor?: string;
+  limit?: number;
+  token: string;
+}): Promise<CommunityFeedResponse> {
+  const params = new URLSearchParams({
+    limit: String(input.limit ?? 20)
+  });
+  if (input.cursor) params.set("cursor", input.cursor);
+
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/feed/private?${params.toString()}`, {
+      headers: {
+        ...authHeaders(authToken)
+      }
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/feed/private", "Failed to load private community feed");
+  }
+
+  return res.json() as Promise<CommunityFeedResponse>;
+}
+
+export async function createCommunityPost(input: { token: string; payload: CommunityCreatePostInput }): Promise<CommunityPost> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/posts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify(input.payload)
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/posts", "Failed to create post");
+  }
+
+  return res.json() as Promise<CommunityPost>;
+}
+
+export async function fetchCommunityThread(input: {
+  postId: string;
+  focusedCommentId?: string;
+  token?: string;
+}): Promise<CommunityThreadResponse> {
+  const params = new URLSearchParams();
+  if (input.focusedCommentId) params.set("focused_comment_id", input.focusedCommentId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  const token = input.token ?? getStoredAccessToken() ?? undefined;
+  const res = await apiFetch(`${API_BASE}/community/posts/${input.postId}${suffix}`, {
+    headers: {
+      ...authHeaders(token)
+    }
+  });
+
+  if (!res.ok) {
+    await handleApiError(res, "community/posts/thread", "Failed to load community thread");
+  }
+
+  return res.json() as Promise<CommunityThreadResponse>;
+}
+
+export async function createCommunityComment(input: {
+  token: string;
+  postId: string;
+  payload: CommunityCreateCommentInput;
+}) {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/posts/${input.postId}/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify(input.payload)
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/comments/create", "Failed to create comment");
+  }
+
+  return res.json();
+}
+
+export async function voteCommunityPost(input: {
+  token: string;
+  postId: string;
+  value: -1 | 1;
+}): Promise<CommunityVoteSummary> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/posts/${input.postId}/votes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify({ value: input.value })
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/posts/votes", "Failed to vote on post");
+  }
+
+  return res.json() as Promise<CommunityVoteSummary>;
+}
+
+export async function voteCommunityComment(input: {
+  token: string;
+  commentId: string;
+  value: -1 | 1;
+}): Promise<CommunityVoteSummary> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/comments/${input.commentId}/votes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify({ value: input.value })
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/comments/votes", "Failed to vote on comment");
+  }
+
+  return res.json() as Promise<CommunityVoteSummary>;
+}
+
+export async function toggleCommunityBookmark(input: { token: string; postId: string }): Promise<{ bookmarked: boolean }> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/posts/${input.postId}/bookmarks`, {
+      method: "POST",
+      headers: {
+        ...authHeaders(authToken)
+      }
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/bookmarks", "Failed to toggle bookmark");
+  }
+
+  return res.json() as Promise<{ bookmarked: boolean }>;
+}
+
+export async function markCommunitySolution(input: {
+  token: string;
+  postId: string;
+  commentId: string;
+}): Promise<CommunityPost> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/posts/${input.postId}/solution`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify({ comment_id: input.commentId })
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/solution", "Failed to mark solution");
+  }
+
+  return res.json() as Promise<CommunityPost>;
+}
+
+export async function submitCommunityReport(input: {
+  token: string;
+  target_type: "post" | "comment";
+  target_post_id?: string;
+  target_comment_id?: string;
+  reason: string;
+  details?: string;
+}): Promise<CommunityReport> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/reports`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify(input)
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/reports", "Failed to submit report");
+  }
+
+  return res.json() as Promise<CommunityReport>;
+}
+
+export async function fetchModerationReports(input: {
+  token: string;
+  status?: CommunityReportStatus;
+  limit?: number;
+}): Promise<CommunityReport[]> {
+  const params = new URLSearchParams({
+    limit: String(input.limit ?? 50)
+  });
+  if (input.status) params.set("status", input.status);
+
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/moderation/reports?${params.toString()}`, {
+      headers: {
+        ...authHeaders(authToken)
+      }
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/moderation/reports", "Failed to load moderation reports");
+  }
+
+  return res.json() as Promise<CommunityReport[]>;
+}
+
+export async function reviewModerationReport(input: {
+  token: string;
+  reportId: string;
+  status: CommunityReportStatus;
+  moderator_note?: string;
+}): Promise<CommunityReport> {
+  const res = await authFetch(async (authToken) =>
+    apiFetch(`${API_BASE}/community/moderation/reports/${input.reportId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(authToken)
+      },
+      body: JSON.stringify({
+        status: input.status,
+        moderator_note: input.moderator_note
+      })
+    }),
+    input.token
+  );
+
+  if (!res.ok) {
+    await handleApiError(res, "community/moderation/review", "Failed to review report");
+  }
+
+  return res.json() as Promise<CommunityReport>;
+}
+
+export async function previewMarkdown(input: { markdown: string }): Promise<{ html: string }> {
+  const res = await apiFetch(`${API_BASE}/community/markdown/preview`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ markdown: input.markdown })
+  });
+
+  if (!res.ok) {
+    await handleApiError(res, "community/markdown/preview", "Failed to render markdown preview");
+  }
+
+  return res.json() as Promise<{ html: string }>;
 }

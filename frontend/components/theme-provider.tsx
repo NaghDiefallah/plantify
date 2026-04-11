@@ -23,12 +23,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       attribute="class" 
       defaultTheme="system" 
       enableSystem 
-      disableTransitionOnChange={false}
+      disableTransitionOnChange
       storageKey="plantify-theme"
     >
-      <div dir={isRTL ? "rtl" : "ltr"}>
-        {children}
-      </div>
+      {children}
     </NextThemesProvider>
   );
 }
