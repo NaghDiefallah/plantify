@@ -1,34 +1,21 @@
-"use client";
+import {CommunityThreadPageClient} from "./thread-page-client";
 
-import {Users} from "lucide-react";
-import {use, useMemo} from "react";
+export function generateStaticParams(): Array<{postId: string}> {
+  if (process.env.PLATFORM_TARGET === "static") {
+    // Static export requires at least one concrete path for dynamic segments.
+    return [{postId: "demo-thread"}];
+  }
 
-import {CommunityExperience} from "@/components/community/community-experience";
-import {DashboardShell} from "@/components/dashboard/dashboard-shell";
-import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
-import {getStoredProfile} from "@/lib/api";
+  return [];
+}
 
-export default function CommunityThreadPage({params}: {params: Promise<{postId: string}>}) {
-  const resolvedParams = use(params);
-  const profile = typeof window === "undefined" ? null : getStoredProfile();
+export const dynamicParams = false;
 
-  const navItems = useMemo<DashboardNavItem[]>(() => {
-    return [];
-  }, []);
+type ThreadPageParams = {
+  params: Promise<{postId: string}>;
+};
 
-  return (
-    <DashboardShell
-      navItems={navItems}
-      activeSection="community"
-      topBarLead={
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-          <Users className="h-3.5 w-3.5" />
-          Community Thread
-        </div>
-      }
-      contentClassName="overflow-hidden"
-    >
-      <CommunityExperience profile={profile} initialPostId={resolvedParams.postId} />
-    </DashboardShell>
-  );
+export default async function CommunityThreadPage({params}: ThreadPageParams) {
+  const {postId} = await params;
+  return <CommunityThreadPageClient postId={postId} />;
 }
