@@ -1,3 +1,9 @@
+export interface DetectionCandidate {
+  index: number;
+  label: string;
+  confidence: number;
+}
+
 export interface DetectionResult {
   disease_type: string;
   plant_name: string;
@@ -8,6 +14,9 @@ export interface DetectionResult {
   image_sha256?: string | null;
   before_image_b64?: string | null;
   after_image_b64?: string | null;
+  is_low_confidence?: boolean;
+  analysis_note?: string | null;
+  top_predictions?: DetectionCandidate[];
 }
 
 export interface ScanHistory {
@@ -32,16 +41,246 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  avatar_url: string | null;
-  bio: string | null;
   role: UserRole;
-  region_label: string;
-  private_feed_enabled: boolean;
-  is_community_moderator: boolean;
-  is_verified: boolean;
-  badges: string[];
-  green_thumb_karma: number;
+  can_create_posts: boolean;
+  expert_application_status: ExpertApplicationStatus;
+  is_banned: boolean;
+  banned_reason?: string | null;
+  avatar_b64?: string | null;
   created_at: string;
+}
+
+export interface UserProfilePost {
+  id: string;
+  created_at: string;
+  post_text: string;
+  ai_plant_name: string;
+  ai_disease: string;
+  ai_confidence_score: number;
+  image_b64?: string | null;
+  likes_count: number;
+  comments_count: number;
+}
+
+export interface ExpertProfileInfo {
+  headline: string;
+  phone_number: string;
+  about: string;
+  credentials: string;
+  years_experience: number;
+  status: ExpertApplicationStatus;
+}
+
+export interface UserProfileDetail {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  can_create_posts: boolean;
+  expert_application_status: ExpertApplicationStatus;
+  is_banned: boolean;
+  banned_reason?: string | null;
+  avatar_b64?: string | null;
+  created_at: string;
+  posts_count: number;
+  expert_profile?: ExpertProfileInfo | null;
+  posts: UserProfilePost[];
+}
+
+export interface PublicUserProfileDetail {
+  id: string;
+  full_name: string;
+  role: UserRole;
+  is_banned: boolean;
+  avatar_b64?: string | null;
+  created_at: string;
+  posts_count: number;
+  expert_profile?: ExpertProfileInfo | null;
+  posts: UserProfilePost[];
+}
+
+export type ExpertApplicationStatus = "none" | "pending" | "approved" | "rejected";
+
+export interface ExpertApplicationInput {
+  headline: string;
+  phone_number: string;
+  about: string;
+  credentials: string;
+  years_experience: number;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  can_create_posts: boolean;
+  expert_application_status: ExpertApplicationStatus;
+  is_banned: boolean;
+  banned_reason?: string | null;
+  created_at: string;
+}
+
+export interface ExpertApplicationRecord {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  current_role: UserRole;
+  headline: string;
+  phone_number: string;
+  about: string;
+  credentials: string;
+  years_experience: number;
+  status: "pending" | "approved" | "rejected";
+  review_notes?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+  reviewed_by_user_id?: string | null;
+}
+
+export interface AdminOverview {
+  users: AdminUserSummary[];
+  expert_applications: ExpertApplicationRecord[];
+  reports: UserReportRecord[];
+}
+
+export interface UserReportRecord {
+  id: string;
+  report_type: "profile" | "post" | string;
+  reason: string;
+  status: "open" | "reviewed" | "dismissed" | string;
+  created_at: string;
+  reporter_user_id: string;
+  reporter_user_name: string;
+  reporter_user_email: string;
+  target_user_id: string;
+  target_user_name: string;
+  target_user_email: string;
+  post_id?: string | null;
+  reviewed_by_user_id?: string | null;
+  reviewed_at?: string | null;
+}
+
+export interface CommunityComment {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar_b64?: string | null;
+  user_role: string;
+  body: string;
+  parent_comment_id?: string | null;
+  created_at: string;
+  is_owner: boolean;
+  is_expert: boolean;
+  likes_count: number;
+  liked_by_current_user: boolean;
+}
+
+export interface CommunityPost {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar_b64?: string | null;
+  plant_name: string;
+  disease: string;
+  disease_type: string;
+  entry_kind: "scan" | "community" | string;
+  created_at: string;
+  image_b64?: string | null;
+  post_text: string;
+  ai_plant_name: string;
+  ai_disease: string;
+  ai_treatment_recommendation: string;
+  ai_confidence_score: number;
+  likes_count: number;
+  comments_count: number;
+  liked_by_current_user: boolean;
+}
+
+export interface CommunityPostDetail extends CommunityPost {
+  comments: CommunityComment[];
+}
+
+export interface CommunityFeedPage {
+  items: CommunityPost[];
+  next_offset: number | null;
+}
+
+export interface CommunityPostSuggestion {
+  normalized_problem: string;
+  predicted_plant_name: string;
+  predicted_disease: string;
+  treatment_recommendation: string;
+  confidence_score: number;
+  is_plant: boolean;
+}
+
+export interface AppNotification {
+  id: string;
+  kind: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  actor_user_name?: string | null;
+  post_id?: string | null;
+  comment_id?: string | null;
+}
+
+export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "friend";
+
+export interface SocialUser {
+  id: string;
+  full_name: string;
+  role: UserRole;
+  avatar_b64?: string | null;
+  friendship_status: FriendshipStatus;
+  pending_request_id?: string | null;
+}
+
+export interface FriendRequest {
+  id: string;
+  status: string;
+  created_at: string;
+  sender: SocialUser;
+  receiver: SocialUser;
+}
+
+export interface FriendConnection {
+  user: SocialUser;
+  friends_since: string;
+  unread_messages_count: number;
+}
+
+export interface DirectMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  body: string;
+  is_own: boolean;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface SocialOverview {
+  discoverable_users: SocialUser[];
+  received_requests: FriendRequest[];
+  sent_requests: FriendRequest[];
+  friends: FriendConnection[];
+}
+
+export interface ExpertDirectoryEntry {
+  user: SocialUser;
+  expert_profile: ExpertProfileInfo;
+}
+
+export interface ExpertDirectoryData {
+  experts: ExpertDirectoryEntry[];
+}
+
+export interface ConversationData {
+  friend: SocialUser;
+  messages: DirectMessage[];
 }
 
 export type UserRole = "farmer" | "expert" | "admin" | "developer";
@@ -59,138 +298,4 @@ export interface UserRoleUpdatePayload {
 export interface RoleCodeUpdatePayload {
   code: string;
   role: UserRole;
-}
-
-export type CommunityFeedSort = "recent" | "hot";
-export type CommunityMediaType = "image" | "video";
-export type CommunityVoteValue = -1 | 1;
-export type CommunityReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
-export type CommunityReportTargetType = "post" | "comment";
-
-export interface CommunityAuthorBrief {
-  id: string;
-  full_name: string;
-  role: UserRole;
-  avatar_url: string | null;
-  bio: string | null;
-  region_label: string;
-  is_verified: boolean;
-  badges: string[];
-  green_thumb_karma: number;
-}
-
-export interface CommunityVoteSummary {
-  upvotes: number;
-  downvotes: number;
-  score: number;
-  viewer_vote: number;
-}
-
-export interface CommunityPostMedia {
-  id: string;
-  media_type: CommunityMediaType;
-  media_url: string;
-  position: number;
-}
-
-export interface CommunityFeaturedComment {
-  id: string;
-  post_id: string;
-  body_markdown: string;
-  created_at: string;
-  is_solution: boolean;
-  author: CommunityAuthorBrief;
-  votes: CommunityVoteSummary;
-}
-
-export interface CommunityPost {
-  id: string;
-  title: string;
-  body_markdown: string;
-  region_label: string;
-  is_private: boolean;
-  comment_count: number;
-  bookmark_count: number;
-  created_at: string;
-  updated_at: string;
-  solution_comment_id: string | null;
-  deep_link: string;
-  author: CommunityAuthorBrief;
-  media: CommunityPostMedia[];
-  votes: CommunityVoteSummary;
-  featured_comment: CommunityFeaturedComment | null;
-  viewer_bookmarked: boolean;
-  hot_score: number;
-}
-
-export interface CommunityComment {
-  id: string;
-  post_id: string;
-  parent_id: string | null;
-  depth: number;
-  body_markdown: string;
-  created_at: string;
-  updated_at: string;
-  is_solution: boolean;
-  replies_count: number;
-  author: CommunityAuthorBrief;
-  votes: CommunityVoteSummary;
-  replies: CommunityComment[];
-}
-
-export interface CommunityFeedResponse {
-  sort: CommunityFeedSort;
-  next_cursor: string | null;
-  items: CommunityPost[];
-}
-
-export interface CommunityThreadResponse {
-  post: CommunityPost;
-  comments: CommunityComment[];
-  focused_comment_id: string | null;
-}
-
-export interface CommunityPostMediaInput {
-  media_type: CommunityMediaType;
-  media_url: string;
-}
-
-export interface CommunityCreatePostInput {
-  title: string;
-  body_markdown: string;
-  media: CommunityPostMediaInput[];
-  region_label: string;
-  is_private: boolean;
-}
-
-export interface CommunityCreateCommentInput {
-  body_markdown: string;
-  parent_id?: string;
-}
-
-export interface UserProfileUpdatePayload {
-  full_name?: string;
-  avatar_url?: string;
-  bio?: string;
-  region_label?: string;
-}
-
-export interface UserRecognitionUpdatePayload {
-  badges?: string[];
-  is_verified?: boolean;
-}
-
-export interface CommunityReport {
-  id: string;
-  target_type: CommunityReportTargetType;
-  target_post_id: string | null;
-  target_comment_id: string | null;
-  reason: string;
-  details: string | null;
-  status: CommunityReportStatus;
-  reporter_user_id: string;
-  reviewed_by_user_id: string | null;
-  moderator_note: string | null;
-  created_at: string;
-  reviewed_at: string | null;
 }

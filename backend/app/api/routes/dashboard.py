@@ -21,7 +21,7 @@ async def history(
 ) -> list[ScanHistoryResponse]:
     stmt = (
         select(ScanHistory)
-        .where(ScanHistory.user_id == current_user.id)
+        .where(ScanHistory.user_id == current_user.id, ScanHistory.entry_kind == "scan")
         .order_by(desc(ScanHistory.created_at))
         .limit(limit)
     )
@@ -56,14 +56,15 @@ async def stats(
                 else_=0,
             )
         )
-    ).where(ScanHistory.user_id == current_user.id)
+    ).where(ScanHistory.user_id == current_user.id, ScanHistory.entry_kind == "scan")
     top_stmt = (
         select(ScanHistory.disease_type, func.count(ScanHistory.id).label("cnt"))
-        .where(ScanHistory.user_id == current_user.id)
+        .where(ScanHistory.user_id == current_user.id, ScanHistory.entry_kind == "scan")
         .group_by(ScanHistory.disease_type)
         .order_by(desc("cnt"))
         .limit(1)
     )
+    total_stmt = total_stmt.where(ScanHistory.entry_kind == "scan")
 
     total = (await session.execute(total_stmt)).scalar_one() or 0
     healthy_ratio_raw = (await session.execute(healthy_stmt)).scalar_one()

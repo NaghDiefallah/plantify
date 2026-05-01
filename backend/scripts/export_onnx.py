@@ -10,6 +10,18 @@ if str(BACKEND_DIR) not in sys.path:
 from app.services.model_artifacts import build_model, resolve_checkpoint_path
 
 
+def _select_export_state_dict(checkpoint: dict) -> dict:
+    ema_state_dict = checkpoint.get("ema_state_dict")
+    if isinstance(ema_state_dict, dict) and ema_state_dict:
+        return ema_state_dict
+
+    model_state_dict = checkpoint.get("model_state_dict")
+    if isinstance(model_state_dict, dict) and model_state_dict:
+        return model_state_dict
+
+    return checkpoint
+
+
 def export(checkpoint_path: str | Path | None = None) -> None:
     try:
         import torch
@@ -29,7 +41,7 @@ def export(checkpoint_path: str | Path | None = None) -> None:
     checkpoint = torch.load(pth_path, map_location="cpu", weights_only=False)
     classes = checkpoint.get("classes", [])
     arch = checkpoint.get("arch", "efficientnet_b2")
-    state_dict = checkpoint.get("model_state_dict", checkpoint)
+    state_dict = _select_export_state_dict(checkpoint)
 
     model = build_model(arch, len(classes))
     model.load_state_dict(state_dict, strict=False)

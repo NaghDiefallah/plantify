@@ -93,25 +93,27 @@ def download_kaggle_dataset(download_dir: Path) -> Path | None:
 @dataclass
 class TrainingConfig:
     dataset_root: Path
+    extra_dataset_roots: list[Path]
+    extra_dataset_tomato_only: bool
     checkpoint_path: Path
     classes_path: Path
-    arch: str = "efficientnet_b2"
-    epochs: int = 16
+    arch: str = "efficientnet_b3"
+    epochs: int = 20
     batch_size: int = 32
-    lr: float = 3e-4
+    lr: float = 4e-4
     weight_decay: float = 1e-2
-    val_split: float = 0.15
+    val_split: float = 0.18
     workers: int = 4
     image_size: int = 240
     seed: int = 42
-    mixup_alpha: float = 0.2
-    freeze_backbone_epochs: int = 3
-    patience: int = 5
+    mixup_alpha: float = 0.22
+    freeze_backbone_epochs: int = 2
+    patience: int = 6
     min_delta: float = 1e-3
     use_ema: bool = True
     ema_decay: float = 0.999
-    tta_runs: int = 1
-    scheduler: str = "cosine"
+    tta_runs: int = 2
+    scheduler: str = "onecycle"
     randaugment_ops: int = 2
     randaugment_magnitude: int = 7
     random_erasing_p: float = 0.25
@@ -165,23 +167,49 @@ def resolve_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def collect_samples(dataset_root: Path) -> tuple[list[tuple[Path, str]], list[str]]:
+def _is_tomato_class(class_name: str) -> bool:
+    normalized = class_name.strip().lower().replace("-", "_").replace(" ", "_")
+    return normalized.startswith("tomato___") or normalized.startswith("tomato_")
+
+
+def _collect_samples_from_root(dataset_root: Path, *, tomato_only: bool = False) -> list[tuple[Path, str]]:
     domain_dirs = [dataset_root / "color", dataset_root / "grayscale", dataset_root / "segmented", dataset_root / "train"]
-    class_names: set[str] = set()
     samples: list[tuple[Path, str]] = []
 
     for domain_dir in domain_dirs:
         if not domain_dir.exists():
             continue
         for class_dir in sorted(path for path in domain_dir.iterdir() if path.is_dir()):
-            class_names.add(class_dir.name)
+            if tomato_only and not _is_tomato_class(class_dir.name):
+                continue
             for image_path in class_dir.glob("**/*"):
                 if image_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
                     samples.append((image_path, class_dir.name))
 
+    return samples
+
+
+def collect_samples(dataset_roots: list[Path], *, extra_dataset_tomato_only: bool = False) -> tuple[list[tuple[Path, str]], list[str]]:
+    class_names: set[str] = set()
+    samples: list[tuple[Path, str]] = []
+    seen_paths: set[str] = set()
+
+    for index, dataset_root in enumerate(dataset_roots):
+        if not dataset_root.exists():
+            continue
+        tomato_only = extra_dataset_tomato_only and index > 0
+        for image_path, class_name in _collect_samples_from_root(dataset_root, tomato_only=tomato_only):
+            resolved = str(image_path.resolve())
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
+            class_names.add(class_name)
+            samples.append((image_path, class_name))
+
     classes = sorted(class_names)
     if not samples:
-        raise RuntimeError(f"No images found under {dataset_root}")
+        searched = ", ".join(str(path) for path in dataset_roots)
+        raise RuntimeError(f"No images found under {searched}")
     return samples, classes
 
 
@@ -379,7 +407,8 @@ def train_model(config: TrainingConfig) -> None:
     device = resolve_device()
     pin_memory = device.type == "cuda" if config.pin_memory is None else config.pin_memory
 
-    raw_samples, classes = collect_samples(config.dataset_root)
+    dataset_roots = [config.dataset_root, *config.extra_dataset_roots]
+    raw_samples, classes = collect_samples(dataset_roots, extra_dataset_tomato_only=config.extra_dataset_tomato_only)
     class_to_idx = {class_name: idx for idx, class_name in enumerate(classes)}
     train_samples, val_samples = split_by_class(raw_samples, class_to_idx, config.val_split, config.seed)
     train_tf, val_tf = build_transforms(config)
@@ -433,7 +462,7 @@ def train_model(config: TrainingConfig) -> None:
         print(f"Resumed training from epoch {start_epoch}")
 
     print(
-        f"Training {config.arch} on {device} | train={len(train_ds)} val={len(val_ds)} | "
+        f"Training {config.arch} on {device} | roots={len(dataset_roots)} train={len(train_ds)} val={len(val_ds)} | "
         f"batch={config.batch_size} workers={config.workers}"
     )
 
@@ -494,11 +523,16 @@ def train_model(config: TrainingConfig) -> None:
                 "classes": classes,
                 "arch": config.arch,
                 "epoch": epoch,
+                "train_loss": avg_train_loss,
                 "val_top1": val_metrics["top1"],
                 "val_top3": val_metrics["top3"],
                 "val_loss": val_metrics["loss"],
                 "tta_runs": config.tta_runs,
                 "ema_decay": config.ema_decay,
+                "image_size": config.image_size,
+                "num_classes": len(classes),
+                "train_samples": len(train_ds),
+                "val_samples": len(val_ds),
             }
             torch.save(checkpoint, config.checkpoint_path)
             config.classes_path.write_text(json.dumps(classes, ensure_ascii=True, indent=2), encoding="utf-8")
@@ -520,6 +554,18 @@ def default_dataset_root(repo_root: Path) -> Path:
     return downloaded or (repo_root / "dataset")
 
 
+def parse_extra_dataset_roots(value: str | None) -> list[Path]:
+    if not value:
+        return []
+    return [Path(item.strip()) for item in value.split(os.pathsep) if item.strip()]
+
+
+def parse_env_flag(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def default_worker_count() -> int:
     cpu_count = os.cpu_count() or 2
     return max(1, min(4, cpu_count - 1))
@@ -530,12 +576,14 @@ def parse_args() -> argparse.Namespace:
     backend_model_dir = repo_root / "backend" / "model"
     parser = argparse.ArgumentParser(description="Train Plantify locally or on any standard Python host.")
     parser.add_argument("--dataset-root", type=Path, default=default_dataset_root(repo_root))
+    parser.add_argument("--extra-dataset-root", dest="extra_dataset_roots", action="append", type=Path, default=None)
     parser.add_argument("--checkpoint-path", type=Path, default=backend_model_dir / "plantify_model.pth")
     parser.add_argument("--classes-path", type=Path, default=backend_model_dir / "classes.json")
-    parser.add_argument("--arch", choices=["efficientnet_b2", "efficientnet_b3", "mobilenet_v3_large"], default="efficientnet_b2")
-    parser.add_argument("--epochs", type=int, default=16)
+    parser.add_argument("--extra-dataset-tomato-only", action="store_true")
+    parser.add_argument("--arch", choices=["efficientnet_b2", "efficientnet_b3", "mobilenet_v3_large"], default="efficientnet_b3")
+    parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--lr", type=float, default=4e-4)
     parser.add_argument("--workers", type=int, default=default_worker_count())
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args([] if "ipykernel" in sys.modules else None)
@@ -543,8 +591,12 @@ def parse_args() -> argparse.Namespace:
 
 def build_config(args: argparse.Namespace) -> TrainingConfig:
     dropout = 0.2 if args.arch == "mobilenet_v3_large" else 0.3
+    env_extra_roots = parse_extra_dataset_roots(os.environ.get("PLANTIFY_EXTRA_DATASETS"))
+    cli_extra_roots = args.extra_dataset_roots or []
     return TrainingConfig(
         dataset_root=args.dataset_root,
+        extra_dataset_roots=[*env_extra_roots, *cli_extra_roots],
+        extra_dataset_tomato_only=args.extra_dataset_tomato_only or parse_env_flag(os.environ.get("PLANTIFY_EXTRA_DATASETS_TOMATO_ONLY")),
         checkpoint_path=args.checkpoint_path,
         classes_path=args.classes_path,
         arch=args.arch,
@@ -552,8 +604,8 @@ def build_config(args: argparse.Namespace) -> TrainingConfig:
         batch_size=args.batch_size,
         lr=args.lr,
         workers=args.workers,
-        scheduler="cosine",
-        tta_runs=1,
+        scheduler="onecycle",
+        tta_runs=2,
         use_ema=True,
         resume=args.resume,
         dropout=dropout,

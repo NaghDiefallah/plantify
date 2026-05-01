@@ -8,7 +8,6 @@ from app.db.session import get_session
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 async def get_current_user(
@@ -24,23 +23,9 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if user.is_banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been banned.")
     return user
-
-
-async def get_optional_user(
-    token: str | None = Depends(oauth2_scheme_optional),
-    session: AsyncSession = Depends(get_session),
-) -> User | None:
-    if not token:
-        return None
-
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        return None
-
-    user_id = payload["sub"]
-    result = await session.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
 
 
 def require_roles(*allowed_roles: str):
@@ -50,9 +35,3 @@ def require_roles(*allowed_roles: str):
         return current_user
 
     return _role_guard
-
-
-async def require_community_moderator(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.is_community_moderator or current_user.role in {"admin", "developer"}:
-        return current_user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Moderator permissions required")

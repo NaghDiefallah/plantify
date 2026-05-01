@@ -1,4 +1,5 @@
 import {getRequestConfig} from "next-intl/server";
+import {cookies} from "next/headers";
 import arMessages from "@/messages/ar.json";
 import enMessages from "@/messages/en.json";
 import esMessages from "@/messages/es.json";
@@ -19,9 +20,15 @@ export default getRequestConfig(async ({requestLocale}) => {
       ? (staticLocale as (typeof routing.locales)[number])
       : routing.defaultLocale;
   } else {
+    const cookieStore = await cookies();
+    const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value;
     const locale = await requestLocale;
-    resolvedLocale = routing.locales.includes(locale as (typeof routing.locales)[number])
-      ? (locale as (typeof routing.locales)[number])
+    const detectedLocale = routing.locales.includes(cookieLocale as (typeof routing.locales)[number])
+      ? (cookieLocale as (typeof routing.locales)[number])
+      : locale;
+
+    resolvedLocale = routing.locales.includes(detectedLocale as (typeof routing.locales)[number])
+      ? (detectedLocale as (typeof routing.locales)[number])
       : routing.defaultLocale;
   }
 

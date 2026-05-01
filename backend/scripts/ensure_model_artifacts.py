@@ -154,7 +154,7 @@ def ensure_model_artifacts(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Ensure model artifacts are present for runtime and deployment")
     parser.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
-    parser.add_argument("--arch", default="efficientnet_b2")
+    parser.add_argument("--arch", default="efficientnet_b3")
     parser.add_argument("--bootstrap-classes", default=os.getenv("MODEL_BOOTSTRAP_CLASSES", ""))
     parser.add_argument("--version-prefix", default=os.getenv("MODEL_VERSION_PREFIX", "ci"))
     parser.add_argument("--run-id", default=os.getenv("GITHUB_RUN_ID", ""))

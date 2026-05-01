@@ -3,6 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class DetectionCandidate(BaseModel):
+    index: int
+    label: str
+    confidence: float
+
+
 class DetectionResponse(BaseModel):
     disease_type: str
     plant_name: str
@@ -13,6 +19,9 @@ class DetectionResponse(BaseModel):
     image_sha256: str | None = None
     before_image_b64: str | None = None
     after_image_b64: str | None = None
+    is_low_confidence: bool = False
+    analysis_note: str | None = None
+    top_predictions: list[DetectionCandidate] = []
 
 
 class ScanHistoryResponse(BaseModel):

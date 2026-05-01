@@ -2,13 +2,18 @@
 
 import {Languages, MoonStar, Settings2} from "lucide-react";
 import {useMemo} from "react";
+import {useLocale} from "next-intl";
 
 import {DashboardShell} from "@/components/dashboard/dashboard-shell";
 import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {LanguageModalButton} from "@/components/ui/language-modal";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
+import {getDashboardCopy} from "@/lib/dashboard-copy";
+import type {AppLocale} from "@/i18n/routing";
 
 export default function SettingsPage() {
+  const locale = useLocale() as AppLocale;
+  const copy = getDashboardCopy(locale).settings;
   const navItems = useMemo<DashboardNavItem[]>(() => {
     return [];
   }, []);
@@ -20,7 +25,7 @@ export default function SettingsPage() {
       topBarLead={
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
           <Settings2 className="h-3.5 w-3.5" />
-          Settings
+          {copy.lead}
         </div>
       }
       contentClassName="overflow-auto"
@@ -30,11 +35,11 @@ export default function SettingsPage() {
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)]">
             <MoonStar className="h-5 w-5" />
           </div>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Theme</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Switch between light and dark modes for the desktop and mobile dashboards.</p>
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">{copy.themeTitle}</h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{copy.themeDescription}</p>
           <div className="mt-5 flex items-center gap-3">
             <ThemeToggle />
-            <span className="text-sm text-[var(--text-tertiary)]">Toggle your current color theme</span>
+            <span className="text-sm text-[var(--text-tertiary)]">{copy.themeHint}</span>
           </div>
         </article>
 
@@ -42,8 +47,8 @@ export default function SettingsPage() {
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)]">
             <Languages className="h-5 w-5" />
           </div>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Language</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Choose the language used across the Plantify dashboard and field tools.</p>
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">{copy.languageTitle}</h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{copy.languageDescription}</p>
           <div className="mt-5 flex items-center gap-3">
             <LanguageModalButton compact={false} />
           </div>

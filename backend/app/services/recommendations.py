@@ -4,6 +4,40 @@ DEFAULT_RECOMMENDATION = "\n".join([
     "Monitor: re-check new growth every 48 to 72 hours and escalate if lesions continue to expand.",
 ])
 
+LABEL_ALIASES: dict[str, tuple[str, ...]] = {
+    "healthy": ("healthy",),
+    "apple_scab": ("apple_scab", "apple___apple_scab"),
+    "cedar_apple_rust": ("cedar_apple_rust", "cedarapple_rust"),
+    "black_rot": ("black_rot", "blackrot"),
+    "powdery_mildew": ("powdery_mildew", "powderymildew"),
+    "early_blight": ("early_blight", "earlyblight"),
+    "late_blight": ("late_blight", "lateblight"),
+    "leaf_blight": ("leaf_blight", "leafblight"),
+    "leaf_scorch": ("leaf_scorch", "leafscorch"),
+    "leaf_mold": ("leaf_mold", "leafmold", "black_leaf_mold", "cercospora_leaf_mold"),
+    "septoria_leaf_spot": ("septoria_leaf_spot", "septorialeafspot", "septoria"),
+    "target_spot": ("target_spot", "targetspot"),
+    "bacterial_spot": ("bacterial_spot", "bacterialspot"),
+    "mosaic_virus": ("mosaic_virus", "tomato_mosaic_virus", "tomatomosaicvirus"),
+    "yellow_leaf_curl_virus": (
+        "yellow_leaf_curl_virus",
+        "tomato_yellow_leaf_curl_virus",
+        "yellowleafcurlvirus",
+        "leafcurlvirus",
+    ),
+    "spider_mites": (
+        "spider_mites",
+        "spidermites",
+        "two_spotted_spider_mite",
+        "twospotted_spider_mite",
+    ),
+    "haunglongbing": ("haunglongbing", "huanglongbing", "citrus_greening"),
+    "common_rust": ("common_rust", "commonrust"),
+    "northern_leaf_blight": ("northern_leaf_blight", "northernleafblight"),
+    "cercospora_leaf_spot": ("cercospora_leaf_spot", "gray_leaf_spot", "grayleafspot"),
+    "esca": ("esca",),
+}
+
 TREATMENT_MAP: dict[str, str] = {
     "healthy": "\n".join([
         "Immediate: no disease signal is dominant; keep the plant in production and avoid unnecessary chemical treatment.",
@@ -114,15 +148,22 @@ TREATMENT_MAP: dict[str, str] = {
 
 
 def recommendation_for_label(label: str) -> str:
-    normalized = label.lower().replace("___", "_").replace(" ", "_")
+    normalized = (
+        label.lower()
+        .replace("___", "_")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+    )
 
     if "healthy" in normalized:
         return TREATMENT_MAP["healthy"]
 
-    for key, value in TREATMENT_MAP.items():
-        if key == "healthy":
+    for canonical_key, aliases in LABEL_ALIASES.items():
+        if canonical_key == "healthy":
             continue
-        if key in normalized:
-            return value
+        if any(alias in normalized for alias in aliases):
+            return TREATMENT_MAP[canonical_key]
 
     return DEFAULT_RECOMMENDATION

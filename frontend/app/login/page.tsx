@@ -99,6 +99,12 @@ export default function LoginPage() {
               {error ? <p className="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-2 text-sm text-[#ef4444]">{error}</p> : null}
             </form>
 
+            <div className="mt-4 text-sm">
+              <Link href="/forgot-password" className="font-semibold text-[#22c55e] hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+
             <p className="mt-5 text-sm text-[var(--text-secondary)]">
               {t("login.switchPrompt")} <Link href="/register" className="font-semibold text-[#22c55e] hover:underline">{t("login.switchCta")}</Link>
             </p>

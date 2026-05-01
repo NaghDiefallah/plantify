@@ -178,6 +178,8 @@ def download_kaggle_dataset(download_dir: Path) -> Path | None:
 @dataclass
 class TrainingConfig:
     dataset_root: Path
+    extra_dataset_roots: list[Path]
+    extra_dataset_tomato_only: bool
     checkpoint_path: Path
     classes_path: Path
     arch: str = "efficientnet_b3"
@@ -359,23 +361,49 @@ def amp_autocast(device: torch.device):
     return nullcontext()
 
 
-def collect_samples(dataset_root: Path) -> tuple[list[tuple[Path, str]], list[str]]:
+def _is_tomato_class(class_name: str) -> bool:
+    normalized = class_name.strip().lower().replace("-", "_").replace(" ", "_")
+    return normalized.startswith("tomato___") or normalized.startswith("tomato_")
+
+
+def _collect_samples_from_root(dataset_root: Path, *, tomato_only: bool = False) -> list[tuple[Path, str]]:
     domain_dirs = [dataset_root / "color", dataset_root / "grayscale", dataset_root / "segmented", dataset_root / "train"]
-    class_names: set[str] = set()
     samples: list[tuple[Path, str]] = []
 
     for domain_dir in domain_dirs:
         if not domain_dir.exists():
             continue
         for class_dir in sorted(path for path in domain_dir.iterdir() if path.is_dir()):
-            class_names.add(class_dir.name)
+            if tomato_only and not _is_tomato_class(class_dir.name):
+                continue
             for image_path in class_dir.glob("**/*"):
                 if image_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
                     samples.append((image_path, class_dir.name))
 
+    return samples
+
+
+def collect_samples(dataset_roots: list[Path], *, extra_dataset_tomato_only: bool = False) -> tuple[list[tuple[Path, str]], list[str]]:
+    class_names: set[str] = set()
+    samples: list[tuple[Path, str]] = []
+    seen_paths: set[str] = set()
+
+    for index, dataset_root in enumerate(dataset_roots):
+        if not dataset_root.exists():
+            continue
+        tomato_only = extra_dataset_tomato_only and index > 0
+        for image_path, class_name in _collect_samples_from_root(dataset_root, tomato_only=tomato_only):
+            resolved = str(image_path.resolve())
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
+            class_names.add(class_name)
+            samples.append((image_path, class_name))
+
     classes = sorted(class_names)
     if not samples:
-        raise RuntimeError(f"No images found under {dataset_root}")
+        searched = ", ".join(str(path) for path in dataset_roots)
+        raise RuntimeError(f"No images found under {searched}")
     return samples, classes
 
 
@@ -596,7 +624,8 @@ def train_model(config: TrainingConfig) -> None:
     if device.type == "cuda":
         torch.backends.cudnn.benchmark = True
 
-    raw_samples, classes = collect_samples(config.dataset_root)
+    dataset_roots = [config.dataset_root, *config.extra_dataset_roots]
+    raw_samples, classes = collect_samples(dataset_roots, extra_dataset_tomato_only=config.extra_dataset_tomato_only)
     class_to_idx = {class_name: idx for idx, class_name in enumerate(classes)}
     train_samples, val_samples = split_by_class(raw_samples, class_to_idx, config.val_split, config.seed)
     train_tf, val_tf = build_transforms(config)
@@ -669,7 +698,7 @@ def train_model(config: TrainingConfig) -> None:
 
     print(
         f"Training {config.arch} on {device} (x{num_gpus} GPU{'s' if num_gpus > 1 else ''}) | "
-        f"train={len(train_ds)} val={len(val_ds)} | "
+        f"roots={len(dataset_roots)} train={len(train_ds)} val={len(val_ds)} | "
         f"batch={global_batch_size} (={config.batch_size}x{max(1, num_gpus)}) "
         f"workers={train_workers}/{val_workers} torch_threads={torch_threads} eval_every={config.eval_every}"
     )
@@ -770,6 +799,18 @@ def resolve_dataset_root(repo_root: Path) -> Path:
     return downloaded or (repo_root / "dataset")
 
 
+def parse_extra_dataset_roots(value: str | None) -> list[Path]:
+    if not value:
+        return []
+    return [Path(item.strip()) for item in value.split(os.pathsep) if item.strip()]
+
+
+def parse_env_flag(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def default_worker_count() -> int:
     cpu_count = os.cpu_count() or 2
     if running_in_notebook():
@@ -812,8 +853,10 @@ def parse_args() -> argparse.Namespace:
     backend_model_dir = repo_root / "backend" / "model"
     parser = argparse.ArgumentParser(description="Train Plantify in Kaggle notebooks.")
     parser.add_argument("--dataset-root", type=Path, default=resolve_dataset_root(repo_root))
+    parser.add_argument("--extra-dataset-root", dest="extra_dataset_roots", action="append", type=Path, default=None)
     parser.add_argument("--checkpoint-path", type=Path, default=backend_model_dir / "plantify_model.pth")
     parser.add_argument("--classes-path", type=Path, default=backend_model_dir / "classes.json")
+    parser.add_argument("--extra-dataset-tomato-only", action="store_true")
     parser.add_argument("--arch", choices=["efficientnet_b2", "efficientnet_b3", "mobilenet_v3_large"], default=default_arch())
     parser.add_argument("--epochs", type=int, default=22)
     parser.add_argument("--batch-size", type=int, default=default_batch_size())
@@ -832,8 +875,12 @@ def build_config(args: argparse.Namespace) -> TrainingConfig:
         dropout = 0.3
     else:
         dropout = 0.35
+    env_extra_roots = parse_extra_dataset_roots(os.environ.get("PLANTIFY_EXTRA_DATASETS"))
+    cli_extra_roots = args.extra_dataset_roots or []
     return TrainingConfig(
         dataset_root=args.dataset_root,
+        extra_dataset_roots=[*env_extra_roots, *cli_extra_roots],
+        extra_dataset_tomato_only=args.extra_dataset_tomato_only or parse_env_flag(os.environ.get("PLANTIFY_EXTRA_DATASETS_TOMATO_ONLY")),
         checkpoint_path=args.checkpoint_path,
         classes_path=args.classes_path,
         arch=args.arch,
