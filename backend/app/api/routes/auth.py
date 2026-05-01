@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -16,10 +18,20 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_session
+from app.models.expert_application import ExpertApplication
+from app.models.password_reset_code import PasswordResetCode
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshTokenRequest, SignUpRequest, TokenResponse
+from app.schemas.auth import (
+    ForgotPasswordCodeRequest,
+    ForgotPasswordResetRequest,
+    LoginRequest,
+    RefreshTokenRequest,
+    SignUpRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserResponse
+from app.services.email_service import send_password_reset_email
 from app.services.rate_limiter import enforce_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -80,13 +92,36 @@ async def signup(
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    if payload.account_type == "expert" and payload.expert_application is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Expert application details are required when signing up as an expert",
+        )
+
     user = User(
         email=payload.email,
         full_name=payload.full_name,
         role="farmer",
+        can_create_posts=False,
+        expert_application_status="pending" if payload.account_type == "expert" else "none",
         hashed_password=get_password_hash(payload.password),
     )
     session.add(user)
+    await session.flush()
+
+    if payload.account_type == "expert" and payload.expert_application is not None:
+        session.add(
+            ExpertApplication(
+                user_id=user.id,
+                headline=payload.expert_application.headline.strip(),
+                phone_number=payload.expert_application.phone_number.strip(),
+                about=payload.expert_application.about.strip(),
+                credentials=payload.expert_application.credentials.strip(),
+                years_experience=payload.expert_application.years_experience,
+                status="pending",
+            )
+        )
+
     await session.commit()
     await session.refresh(user)
     audit_event(event="auth.signup", outcome="success", request=request, user_id=user.id, email=user.email)
@@ -119,8 +154,146 @@ async def login(
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
+    if user.is_banned:
+        audit_event(
+            event="auth.login",
+            outcome="denied",
+            request=request,
+            user_id=user.id,
+            email=user.email,
+            reason="banned_account",
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been banned.")
+
     audit_event(event="auth.login", outcome="success", request=request, user_id=user.id, email=user.email)
     return await _issue_token_pair(session, user.id)
+
+
+@router.post("/forgot-password/request-code")
+async def forgot_password_request_code(
+    payload: ForgotPasswordCodeRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    await enforce_rate_limit(
+        request=request,
+        scope="auth_forgot_password",
+        limit=settings.rate_limit_login_per_minute,
+        window_seconds=60,
+    )
+
+    if (
+        not settings.smtp_host.strip()
+        or not settings.smtp_username.strip()
+        or not settings.smtp_password.strip()
+        or not settings.smtp_from_email.strip()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Password reset email is not configured yet.",
+        )
+
+    user = await session.scalar(select(User).where(User.email == payload.email))
+    if user is None:
+        audit_event(
+            event="auth.forgot_password.request_code",
+            outcome="ignored",
+            request=request,
+            email=payload.email,
+            reason="email_not_found",
+        )
+        return {"status": "ok", "message": "If the email exists, a reset code has been sent."}
+
+    now = datetime.now(timezone.utc)
+    revoke_stmt = (
+        update(PasswordResetCode)
+        .where(PasswordResetCode.user_id == user.id, PasswordResetCode.used_at.is_(None))
+        .values(used_at=now)
+    )
+    await session.execute(revoke_stmt)
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    expires_at = now + timedelta(minutes=settings.password_reset_code_expire_minutes)
+    session.add(
+        PasswordResetCode(
+            user_id=user.id,
+            code_hash=code_hash,
+            expires_at=expires_at,
+        )
+    )
+    await session.commit()
+    send_password_reset_email(to_email=user.email, full_name=user.full_name, code=code)
+    audit_event(event="auth.forgot_password.request_code", outcome="success", request=request, user_id=user.id, email=user.email)
+    return {"status": "ok", "message": "Reset code sent successfully"}
+
+
+@router.post("/forgot-password/reset")
+async def forgot_password_reset(
+    payload: ForgotPasswordResetRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    await enforce_rate_limit(
+        request=request,
+        scope="auth_forgot_password_reset",
+        limit=settings.rate_limit_login_per_minute,
+        window_seconds=60,
+    )
+
+    user = await session.scalar(select(User).where(User.email == payload.email))
+    if user is None:
+        audit_event(
+            event="auth.forgot_password.reset",
+            outcome="denied",
+            request=request,
+            email=payload.email,
+            reason="email_not_found",
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email not found")
+
+    code_hash = hashlib.sha256(payload.code.strip().encode("utf-8")).hexdigest()
+    reset_code = await session.scalar(
+        select(PasswordResetCode)
+        .where(
+            PasswordResetCode.user_id == user.id,
+            PasswordResetCode.code_hash == code_hash,
+            PasswordResetCode.used_at.is_(None),
+        )
+        .order_by(PasswordResetCode.created_at.desc())
+    )
+    if reset_code is None:
+        audit_event(
+            event="auth.forgot_password.reset",
+            outcome="denied",
+            request=request,
+            user_id=user.id,
+            email=user.email,
+            reason="invalid_code",
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset code")
+
+    expires_at = reset_code.expires_at
+    now = datetime.now(timezone.utc)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= now:
+        audit_event(
+            event="auth.forgot_password.reset",
+            outcome="denied",
+            request=request,
+            user_id=user.id,
+            email=user.email,
+            reason="expired_code",
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset code has expired")
+
+    user.hashed_password = get_password_hash(payload.new_password)
+    reset_code.used_at = now
+    await session.flush()
+    await _invalidate_all_user_sessions(session, user.id)
+    audit_event(event="auth.forgot_password.reset", outcome="success", request=request, user_id=user.id, email=user.email)
+    return {"status": "ok", "message": "Password updated successfully"}
 
 
 @router.post("/refresh", response_model=TokenResponse)

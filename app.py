@@ -8,10 +8,17 @@ import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import os
+import sys
 import cv2
 import numpy as np
 from collections import OrderedDict
 import time
+
+PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PARENT_DIR not in sys.path:
+    sys.path.append(PARENT_DIR)
+
+from tomato_disease_info import disease_info
 
 st.set_page_config(
     page_title="Plantify AI",
@@ -19,6 +26,30 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+
+def chatbot_response(predicted_class, confidence):
+    info = disease_info[predicted_class]
+
+    response = f"""
+تم تحليل صورة نبات الطماطم.
+
+النتيجة: {info['name_ar']}
+نسبة الثقة: {confidence:.2f}%
+
+السبب:
+{info['cause']}
+
+الأعراض:
+{info['symptoms']}
+
+العلاج المقترح:
+{info['treatment']}
+
+طرق الوقاية:
+{info['prevention']}
+"""
+    return response
 
 def check_system_status():
     return {

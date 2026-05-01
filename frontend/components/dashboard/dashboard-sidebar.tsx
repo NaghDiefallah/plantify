@@ -1,17 +1,21 @@
 "use client";
 
+import {useQuery} from "@tanstack/react-query";
 import {
   Activity,
+  Bell,
   ClipboardCheck,
   FlaskConical,
   History,
   Home,
+  LayoutDashboard,
   Leaf,
   LogOut,
   Menu,
   MessageSquareHeart,
   Settings2,
   ShieldCheck,
+  UserRound,
   Users,
   X
 } from "lucide-react";
@@ -19,14 +23,16 @@ import {useEffect, useState} from "react";
 import {useLocale} from "next-intl";
 
 import {Link, usePathname} from "@/i18n/navigation";
-import {getStoredAccessToken, logoutCurrentSession} from "@/lib/api";
+import {fetchNotifications, getStoredAccessToken, getStoredProfile, logoutCurrentSession} from "@/lib/api";
+import {getDashboardCopy} from "@/lib/dashboard-copy";
+import type {AppLocale} from "@/i18n/routing";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
 
 export type DashboardNavItem = {
   id: string;
   label: string;
-  icon: "activity" | "clipboard" | "flask" | "history" | "leaf" | "message" | "shield" | "users";
+  icon: "activity" | "clipboard" | "flask" | "history" | "leaf" | "message" | "shield" | "users" | "user" | "bell";
   href?: string;
 };
 
@@ -48,8 +54,42 @@ function iconForNavItem(icon: DashboardNavItem["icon"]) {
       return ShieldCheck;
     case "users":
       return Users;
+    case "user":
+      return UserRound;
+    case "bell":
+      return Bell;
     default:
       return Settings2;
+  }
+}
+
+function getSocialLabel(locale: AppLocale) {
+  switch (locale) {
+    case "ar":
+      return "التواصل";
+    case "hi":
+      return "सोशल";
+    case "zh":
+      return "社交";
+    case "es":
+      return "Social";
+    default:
+      return "Social";
+  }
+}
+
+function getExpertsLabel(locale: AppLocale) {
+  switch (locale) {
+    case "ar":
+      return "الخبراء";
+    case "hi":
+      return "Experts";
+    case "zh":
+      return "专家";
+    case "es":
+      return "Expertos";
+    default:
+      return "Experts";
   }
 }
 
@@ -58,13 +98,15 @@ function NavLink({
   active,
   href,
   label,
-  icon: Icon
+  icon: Icon,
+  badgeCount
 }: {
   collapsed: boolean;
   active: boolean;
   href: string;
   label: string;
   icon: ReturnType<typeof iconForNavItem>;
+  badgeCount?: number;
 }) {
   return (
     <Link
@@ -80,8 +122,13 @@ function NavLink({
     >
       <Icon className="h-4 w-4 shrink-0" />
       {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
+      {badgeCount && badgeCount > 0 && !collapsed ? (
+        <span className="ml-auto inline-flex min-w-6 items-center justify-center rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+          {badgeCount}
+        </span>
+      ) : null}
       {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
           {label}
         </span>
       ) : null}
@@ -118,7 +165,7 @@ function NavButton({
       <Icon className="h-4 w-4 shrink-0" />
       {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
       {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
           {label}
         </span>
       ) : null}
@@ -132,7 +179,8 @@ function SidePanelContent({
   activeSection,
   onToggleCollapsed,
   onNavigate,
-  pathname
+  pathname,
+  localeOverride
 }: {
   collapsed: boolean;
   navItems: DashboardNavItem[];
@@ -140,18 +188,45 @@ function SidePanelContent({
   onToggleCollapsed: () => void;
   onNavigate: (sectionId: string) => void;
   pathname: string;
+  localeOverride?: AppLocale;
 }) {
-  const dashboardLabel = "Dashboard";
-  const logoutLabel = "Logout";
+  const detectedLocale = useLocale() as AppLocale;
+  const locale = localeOverride ?? detectedLocale;
+  const copy = getDashboardCopy(locale).sidebar;
+  const dashboardLabel = copy.dashboard;
+  const logoutLabel = copy.logout;
+  const [token, setToken] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setToken(getStoredAccessToken());
+    setCurrentRole(getStoredProfile()?.role ?? null);
+  }, []);
+
   const workflowItems = navItems.filter((item) => !["scan", "analyze", "act", "scan-history"].includes(item.id));
+  const notificationsQuery = useQuery({
+    queryKey: ["sidebar-notifications", token],
+    queryFn: async () => fetchNotifications(token ?? ""),
+    enabled: Boolean(token),
+    refetchInterval: 15000
+  });
+  const unreadCount = notificationsQuery.data?.filter((item) => !item.is_read).length ?? 0;
 
   const quickLinks = [
-    {id: "dashboard", label: "Home", href: "/dashboard", icon: Home},
-    {id: "chat", label: "Chat", href: "/chat", icon: MessageSquareHeart},
-    {id: "community", label: "Community", href: "/community", icon: Users},
-    {id: "history", label: "History", href: "/scan-history", icon: History},
-    {id: "settings", label: "Settings", href: "/settings", icon: Settings2}
+    {id: "dashboard", label: copy.home, href: "/dashboard", icon: Home},
+    {id: "chat", label: copy.chat, href: "/chat", icon: MessageSquareHeart},
+    {id: "social", label: getSocialLabel(locale), href: "/social", icon: Users},
+    {id: "experts", label: getExpertsLabel(locale), href: "/experts", icon: ShieldCheck},
+    {id: "community", label: copy.community, href: "/community", icon: Users},
+    {id: "notifications", label: copy.notifications, href: "/notifications", icon: Bell},
+    {id: "profile", label: copy.profile, href: "/profile", icon: UserRound},
+    {id: "history", label: copy.history, href: "/scan-history", icon: History},
+    {id: "settings", label: copy.settings, href: "/settings", icon: Settings2}
   ];
+
+  if (currentRole === "admin" || currentRole === "developer") {
+    quickLinks.splice(1, 0, {id: "admin", label: "Admin", href: "/admin", icon: LayoutDashboard});
+  }
 
   return (
     <div className={cn("flex h-full flex-col gap-4 p-4", collapsed && "items-center px-3")}>
@@ -169,7 +244,7 @@ function SidePanelContent({
         ) : (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workspace</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">{copy.workspace}</p>
               <span className="mt-1 block text-base font-semibold text-[var(--text-primary)]">{dashboardLabel}</span>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
@@ -180,7 +255,7 @@ function SidePanelContent({
       </button>
 
       <div className={cn("w-full rounded-[1.6rem] border border-[var(--card-border)] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(246,248,247,0.92))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(145deg,rgba(24,24,27,0.95),rgba(39,39,42,0.88))]", collapsed && "w-auto border-none bg-transparent p-0 shadow-none")}>
-        {workflowItems.length > 0 && !collapsed ? <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p> : null}
+        {workflowItems.length > 0 && !collapsed ? <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">{copy.workflow}</p> : null}
         {workflowItems.length > 0 ? <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
           {workflowItems.map((item) => {
             const Icon = iconForNavItem(item.icon);
@@ -201,19 +276,46 @@ function SidePanelContent({
         {collapsed ? null : (
           <>
             {workflowItems.length > 0 ? <div className="my-3 h-px bg-[var(--card-border)]/80" /> : null}
-            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Navigate</p>
+            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">{copy.navigate}</p>
           </>
         )}
         <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
           {quickLinks.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const workflowActive = workflowItems.some((item) =>
+              item.href
+                ? pathname === item.href || pathname.startsWith(`${item.href}#`)
+                : activeSection === item.id
+            );
+            const isActive =
+              link.id === "dashboard"
+                ? !workflowActive && pathname === link.href
+                : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <li key={link.id} className="w-full">
-                <NavLink collapsed={collapsed} active={isActive} href={link.href} label={link.label} icon={link.icon} />
+                <NavLink
+                  collapsed={collapsed}
+                  active={isActive}
+                  href={link.href}
+                  label={link.label}
+                  icon={link.icon}
+                  badgeCount={link.id === "notifications" ? unreadCount : undefined}
+                />
               </li>
             );
           })}
         </ul>
+      </div>
+
+      <div className={cn("w-full rounded-[1.35rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3", collapsed && "hidden")}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
+            <History className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.historyTitle}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-tertiary)]">{copy.historyDescription}</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1" />
@@ -245,15 +347,18 @@ export function DashboardSidebar({
   onCollapsedChange,
   navItems,
   activeSection,
-  onSectionNavigate
+  onSectionNavigate,
+  localeOverride
 }: {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   navItems: DashboardNavItem[];
   activeSection: string;
   onSectionNavigate?: (sectionId: string) => void;
+  localeOverride?: AppLocale;
 }) {
-  const locale = useLocale();
+  const detectedLocale = useLocale() as AppLocale;
+  const locale = localeOverride ?? detectedLocale;
   const pathname = usePathname();
   const rtl = locale === "ar";
   const [isOpen, setIsOpen] = useState(false);
@@ -304,28 +409,27 @@ export function DashboardSidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 z-[60] w-[min(86vw,21rem)] transform bg-[var(--bg-primary)] transition-[transform,width] duration-300 ease-in-out lg:left-0 lg:border-r lg:border-[var(--card-border)] lg:w-[22rem]",
+          "fixed inset-y-0 z-40 w-[min(86vw,21rem)] transform bg-[var(--bg-primary)] transition-[transform,width] duration-300 ease-in-out lg:w-[22rem]",
           effectiveCollapsed ? "lg:w-24" : "lg:w-[22rem]",
-          isDesktop
-            ? "left-0 border-r border-[var(--card-border)] translate-x-0"
-            : rtl
-              ? cn("right-0 border-l border-[var(--card-border)]", isOpen ? "translate-x-0" : "translate-x-full")
-              : cn("left-0 border-r border-[var(--card-border)]", isOpen ? "translate-x-0" : "-translate-x-full")
+          rtl ? "right-0 border-l" : "left-0 border-r",
+          "border-[var(--card-border)]",
+          rtl
+            ? isOpen
+              ? "translate-x-0"
+              : "translate-x-full lg:translate-x-0"
+            : isOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex items-center justify-between border-b border-[var(--card-border)] p-4 lg:hidden">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Dashboard</h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{getDashboardCopy(locale as AppLocale).sidebar.dashboard}</h2>
           <button onClick={() => setIsOpen(false)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div
-          className={cn(
-            "h-full overscroll-contain pb-6 lg:pb-0",
-            effectiveCollapsed ? "overflow-visible" : "overflow-y-auto"
-          )}
-        >
+        <div className={cn("h-full overscroll-contain pb-6 lg:pb-0", effectiveCollapsed ? "overflow-y-hidden" : "overflow-y-auto") }>
           <SidePanelContent
             collapsed={effectiveCollapsed}
             navItems={navItems}
@@ -336,6 +440,7 @@ export function DashboardSidebar({
             }}
             onNavigate={navigateToSection}
             pathname={pathname}
+            localeOverride={locale}
           />
         </div>
       </aside>

@@ -27,14 +27,7 @@ class AIService:
         return []
 
     @staticmethod
-    def preprocess(image_bytes: bytes, image_size: int = 240) -> np.ndarray:
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        image = image.resize((256, 256), Image.Resampling.BILINEAR)
-
-        left = (256 - image_size) // 2
-        top = (256 - image_size) // 2
-        image = image.crop((left, top, left + image_size, top + image_size))
-
+    def _normalize_image(image: Image.Image) -> np.ndarray:
         arr = np.asarray(image).astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
@@ -42,6 +35,68 @@ class AIService:
         arr = (arr - mean) / std
         arr = np.transpose(arr, (2, 0, 1))
         return np.expand_dims(arr, axis=0)
+
+    @staticmethod
+    def _resize_preserving_aspect_ratio(image: Image.Image, min_side: int) -> Image.Image:
+        width, height = image.size
+        if width <= 0 or height <= 0:
+            raise ValueError("Invalid image dimensions")
+
+        if width < height:
+            new_width = min_side
+            new_height = int(round((height / width) * min_side))
+        else:
+            new_height = min_side
+            new_width = int(round((width / height) * min_side))
+
+        return image.resize((new_width, new_height), Image.Resampling.BILINEAR)
+
+    @staticmethod
+    def _center_crop(image: Image.Image, image_size: int) -> Image.Image:
+        width, height = image.size
+        left = max((width - image_size) // 2, 0)
+        top = max((height - image_size) // 2, 0)
+        return image.crop((left, top, left + image_size, top + image_size))
+
+    @staticmethod
+    def _five_crop(image: Image.Image, image_size: int) -> list[Image.Image]:
+        width, height = image.size
+        if width < image_size or height < image_size:
+            image = image.resize((max(width, image_size), max(height, image_size)), Image.Resampling.BILINEAR)
+            width, height = image.size
+
+        x_right = width - image_size
+        y_bottom = height - image_size
+        x_center = max((width - image_size) // 2, 0)
+        y_center = max((height - image_size) // 2, 0)
+
+        boxes = [
+            (0, 0, image_size, image_size),
+            (x_right, 0, x_right + image_size, image_size),
+            (0, y_bottom, image_size, y_bottom + image_size),
+            (x_right, y_bottom, x_right + image_size, y_bottom + image_size),
+            (x_center, y_center, x_center + image_size, y_center + image_size),
+        ]
+        return [image.crop(box) for box in boxes]
+
+    @classmethod
+    def preprocess(cls, image_bytes: bytes, image_size: int = 240) -> np.ndarray:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        resize_min_side = max(256, image_size + 48)
+        image = cls._resize_preserving_aspect_ratio(image, resize_min_side)
+        image = cls._center_crop(image, image_size)
+        return cls._normalize_image(image)
+
+    @classmethod
+    def _preprocess_variants(cls, image_bytes: bytes, image_size: int = 240) -> list[np.ndarray]:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        resize_min_side = max(256, image_size + 48)
+        image = cls._resize_preserving_aspect_ratio(image, resize_min_side)
+
+        crops = cls._five_crop(image, image_size)
+        center_crop = crops[-1]
+        flipped_center = center_crop.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        return [cls._normalize_image(crop) for crop in [*crops, flipped_center]]
 
     @staticmethod
     def _plant_likelihood(image_bytes: bytes) -> dict[str, float]:
@@ -104,41 +159,138 @@ class AIService:
         normalized_entropy = float(entropy / entropy_max) if entropy_max > 0 else 1.0
         return {"confidence": top1, "margin": margin, "entropy": normalized_entropy}
 
+    def _top_predictions(self, probs: np.ndarray, limit: int = 3) -> list[dict[str, float | int | str]]:
+        if probs.size == 0:
+            return []
+
+        top_indices = np.argsort(probs)[::-1][: max(1, limit)]
+        predictions: list[dict[str, float | int | str]] = []
+        for idx in top_indices:
+            index = int(idx)
+            label = self.labels[index] if self.labels and index < len(self.labels) else f"class_{index}"
+            predictions.append(
+                {
+                    "index": index,
+                    "label": label,
+                    "confidence": float(probs[index]),
+                }
+            )
+        return predictions
+
+    @staticmethod
+    def _variant_consensus(variant_probs: list[np.ndarray], predicted_index: int) -> float:
+        if not variant_probs:
+            return 0.0
+
+        votes = 0
+        confidence_sum = 0.0
+        for probs in variant_probs:
+            if probs.size == 0:
+                continue
+            vote_index = int(np.argmax(probs))
+            if vote_index == predicted_index:
+                votes += 1
+            confidence_sum += float(probs[predicted_index])
+
+        vote_ratio = votes / len(variant_probs)
+        mean_support = confidence_sum / len(variant_probs)
+        return float(np.clip((0.65 * vote_ratio) + (0.35 * mean_support), 0.0, 1.0))
+
+    @staticmethod
+    def _calibrate_confidence(
+        *, raw_confidence: float, margin: float, entropy: float, plant_score: float, consensus: float
+    ) -> float:
+        margin_score = float(np.clip(margin / 0.35, 0.0, 1.0))
+        entropy_score = 1.0 - float(np.clip(entropy, 0.0, 1.0))
+        plant_score = float(np.clip(plant_score, 0.0, 1.0))
+        consensus = float(np.clip(consensus, 0.0, 1.0))
+
+        calibrated = (
+            (0.5 * raw_confidence)
+            + (0.2 * margin_score)
+            + (0.15 * entropy_score)
+            + (0.1 * consensus)
+            + (0.05 * plant_score)
+        )
+        return float(np.clip(calibrated, 0.0, 0.995))
+
     def predict(self, image_bytes: bytes) -> dict[str, Any]:
-        input_tensor = self.preprocess(image_bytes)
         input_name = self.session.get_inputs()[0].name
         output_name = self.session.get_outputs()[0].name
 
-        logits = self.session.run([output_name], {input_name: input_tensor})[0][0]
-        probs = self._softmax(logits)
+        variant_tensors = self._preprocess_variants(image_bytes)
+        variant_logits: list[np.ndarray] = []
+        for input_tensor in variant_tensors:
+            logits = self.session.run([output_name], {input_name: input_tensor})[0][0]
+            variant_logits.append(logits.astype(np.float32))
+
+        avg_logits = np.mean(np.stack(variant_logits, axis=0), axis=0)
+        probs = self._softmax(avg_logits)
         stats = self._prediction_stats(probs)
+        variant_probs = [self._softmax(logits) for logits in variant_logits]
+        top_predictions = self._top_predictions(probs, limit=3)
 
         index = int(np.argmax(probs))
-        confidence = float(probs[index])
+        raw_confidence = float(probs[index])
         label = self.labels[index] if self.labels and index < len(self.labels) else f"class_{index}"
         plant_features = self._plant_likelihood(image_bytes)
         plant_score = float(plant_features["plant_score"])
         margin = float(stats["margin"])
         entropy = float(stats["entropy"])
+        consensus = self._variant_consensus(variant_probs, index)
+        confidence = self._calibrate_confidence(
+            raw_confidence=raw_confidence,
+            margin=margin,
+            entropy=entropy,
+            plant_score=plant_score,
+            consensus=consensus,
+        )
+        is_uncertain = (
+            (raw_confidence < 0.24 and consensus < 0.45)
+            or (margin < 0.04 and entropy > 0.90)
+            or (consensus < 0.38)
+        )
+        is_low_confidence = (
+            raw_confidence < 0.38
+            or margin < 0.08
+            or entropy > 0.74
+            or consensus < 0.62
+        )
 
-        # Reject obvious non-plant images (e.g., UI screenshots/text/objects)
-        # by combining image heuristics with prediction uncertainty.
-        is_plant = plant_score >= 0.16
-        if is_plant and plant_score < 0.22 and (confidence < 0.9 or margin < 0.2):
+        # Keep a non-plant filter, but let a reasonably confident disease signal
+        # override weak color heuristics so real leaf photos are not rejected.
+        weak_plant_signal = plant_score < 0.08
+        very_low_leaf_texture = plant_features["vegetation_ratio"] < 0.03
+        mostly_gray = plant_features["gray_ratio"] > 0.60
+        strong_model_signal = raw_confidence >= 0.30 or margin >= 0.08
+
+        is_plant = plant_score >= 0.10 or (strong_model_signal and entropy < 0.92)
+        if weak_plant_signal and raw_confidence < 0.25 and margin < 0.05:
             is_plant = False
-        if is_plant and entropy > 0.72 and plant_score < 0.3:
+        if mostly_gray and very_low_leaf_texture and raw_confidence < 0.28:
             is_plant = False
-        if is_plant and plant_features["gray_ratio"] > 0.45 and plant_features["vegetation_ratio"] < 0.08:
-            is_plant = False
+
+        analysis_note = None
+        if is_low_confidence:
+            analysis_note = (
+                "This scan is plausible but not very stable. "
+                "Review the top alternatives and, if possible, scan a closer image of one leaf."
+            )
 
         return {
             "index": index,
             "label": label,
             "confidence": confidence,
+            "raw_confidence": raw_confidence,
             "plant_score": plant_score,
             "margin": margin,
             "entropy": entropy,
+            "consensus": consensus,
             "is_plant": is_plant,
+            "is_uncertain": is_uncertain,
+            "is_low_confidence": is_low_confidence,
+            "top_predictions": top_predictions,
+            "analysis_note": analysis_note,
         }
 
     @staticmethod

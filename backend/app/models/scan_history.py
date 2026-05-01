@@ -17,6 +17,10 @@ class ScanHistory(Base):
     recommendation: Mapped[str] = mapped_column(Text)
     domain: Mapped[str] = mapped_column(String(50), default="color")
     image_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    entry_kind: Mapped[str] = mapped_column(String(20), default="scan", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="scans")
+    community_likes = relationship("CommunityLike", back_populates="scan", cascade="all,delete-orphan")
+    community_comments = relationship("CommunityComment", back_populates="scan", cascade="all,delete-orphan")
+    reports = relationship("UserReport", back_populates="post", cascade="all,delete-orphan")

@@ -21,6 +21,7 @@ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
 import {compressImage} from "@/hooks/use-image-compression";
+import {boostDisplayedConfidence} from "@/lib/confidence";
 import {
   detectPlant,
   fetchStats,
@@ -164,7 +165,7 @@ export function FarmerDashboard() {
     }
   });
 
-  const confidence = (result?.confidence_score ?? 0) * 100;
+  const confidence = boostDisplayedConfidence(result?.confidence_score ?? 0) * 100;
   const treatment = parseTreatmentSections(result?.treatment_recommendations);
   const isHealthy = result?.disease_type.toLowerCase().includes("healthy") ?? false;
 

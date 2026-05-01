@@ -1,6 +1,5 @@
 "use client";
 
-import type {MouseEvent} from "react";
 import {useEffect, useState} from "react";
 import {Minus, Square, SquareStack, X} from "lucide-react";
 
@@ -28,22 +27,6 @@ export function DesktopTitleBar({
   const [desktopShell, setDesktopShell] = useState(false);
   const [maximized, setMaximized] = useState(false);
 
-  const withCurrentWindow = async <T,>(
-    action: (windowHandle: ReturnType<(typeof import("@tauri-apps/api/window"))["getCurrentWindow"]>) => Promise<T>
-  ) => {
-    const {getCurrentWindow} = await import("@tauri-apps/api/window");
-    return action(getCurrentWindow());
-  };
-
-  const syncMaximizedState = async () => {
-    try {
-      const isWindowMaximized = await withCurrentWindow((windowHandle) => windowHandle.isMaximized());
-      setMaximized(isWindowMaximized);
-    } catch {
-      setMaximized(false);
-    }
-  };
-
   useEffect(() => {
     setDesktopShell(isDesktopShell());
   }, []);
@@ -54,32 +37,14 @@ export function DesktopTitleBar({
     }
 
     let mounted = true;
-    let cleanup = () => {};
     void (async () => {
       try {
         const {getCurrentWindow} = await import("@tauri-apps/api/window");
         const appWindow = getCurrentWindow();
-        const updateState = async () => {
-          const isWindowMaximized = await appWindow.isMaximized();
-          if (mounted) {
-            setMaximized(isWindowMaximized);
-          }
-        };
-
-        await updateState();
-
-        const unlistenResize = await appWindow.onResized(() => {
-          void updateState();
-        });
-
-        const unlistenMove = await appWindow.onMoved(() => {
-          void updateState();
-        });
-
-        cleanup = () => {
-          unlistenResize();
-          unlistenMove();
-        };
+        const isWindowMaximized = await appWindow.isMaximized();
+        if (mounted) {
+          setMaximized(isWindowMaximized);
+        }
       } catch {
         if (mounted) {
           setMaximized(false);
@@ -89,7 +54,6 @@ export function DesktopTitleBar({
 
     return () => {
       mounted = false;
-      cleanup();
     };
   }, [desktopShell]);
 
@@ -100,7 +64,8 @@ export function DesktopTitleBar({
     }
 
     try {
-      await withCurrentWindow((windowHandle) => windowHandle.minimize());
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
     } catch {
       // Ignore when running in web mode.
     }
@@ -113,8 +78,11 @@ export function DesktopTitleBar({
     }
 
     try {
-      await withCurrentWindow((windowHandle) => windowHandle.toggleMaximize());
-      await syncMaximizedState();
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      const appWindow = getCurrentWindow();
+      await appWindow.toggleMaximize();
+      const isWindowMaximized = await appWindow.isMaximized();
+      setMaximized(isWindowMaximized);
     } catch {
       // Ignore when running in web mode.
     }
@@ -127,19 +95,8 @@ export function DesktopTitleBar({
     }
 
     try {
-      await withCurrentWindow((windowHandle) => windowHandle.close());
-    } catch {
-      // Ignore when running in web mode.
-    }
-  };
-
-  const handleDragStart = async (event: MouseEvent<HTMLDivElement>) => {
-    if (!desktopShell || event.button !== 0) {
-      return;
-    }
-
-    try {
-      await withCurrentWindow((windowHandle) => windowHandle.startDragging());
+      const {getCurrentWindow} = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
     } catch {
       // Ignore when running in web mode.
     }
@@ -152,20 +109,20 @@ export function DesktopTitleBar({
   return (
     <header
       className={cn(
-        "flex h-12 items-center justify-between rounded-[1.25rem] border border-white/10 bg-zinc-950/92 px-3 backdrop-blur-xl",
+        "flex h-12 items-center justify-between border-b border-white/10 bg-zinc-950/92 px-3 backdrop-blur-xl",
         className
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3 pr-3" onMouseDown={(event) => void handleDragStart(event)} onDoubleClick={() => void handleToggleMaximize()}>
+      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3 pr-3">
         <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/90 shadow-[0_0_12px_rgba(74,222,128,0.45)]" />
-        <div className="min-w-0 flex flex-col select-none">
+        <div className="min-w-0 flex flex-col" onDoubleClick={() => void handleToggleMaximize()}>
           <span className="truncate text-sm font-semibold uppercase tracking-[0.14em] text-zinc-100">{title}</span>
           <span className="truncate text-[11px] text-zinc-400">{subtitle}</span>
         </div>
-        <div className="flex-1" />
+        <div data-tauri-drag-region className="flex-1" />
       </div>
 
-      <div className="flex items-center gap-1.5" data-tauri-disable-drag-region>
+      <div className="flex items-center gap-1.5">
         <Button
           type="button"
           variant="ghost"

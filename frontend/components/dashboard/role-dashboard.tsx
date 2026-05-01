@@ -23,6 +23,7 @@ import {FarmerDashboard} from "@/components/farmer/farmer-dashboard";
 import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {cn} from "@/lib/utils";
 import {isNativeMobilePlatform} from "@/lib/platform";
+import type {AppLocale} from "@/i18n/routing";
 
 type NoticeKind = "error" | "success" | "info" | "warn";
 
@@ -32,12 +33,259 @@ type Notice = {
   message: string;
 };
 
+const ROLE_DASHBOARD_COPY: Record<
+  AppLocale,
+  {
+    dismissNotification: string;
+    reviewQueue: string;
+    reviewQueueDescription: string;
+    accuracySnapshot: string;
+    accuracySnapshotDescription: string;
+    notes: string;
+    notesDescription: string;
+    activeUsers: string;
+    organizations: string;
+    apiSuccess: string;
+    supportSla: string;
+    developerWorkspace: string;
+    developerWorkspaceDescription: string;
+    environmentHealth: string;
+    environmentHealthDescription: string;
+    signedInAccount: string;
+    noSignedInUser: string;
+    roleManagement: string;
+    roleManagementDescription: string;
+    userColumn: string;
+    emailColumn: string;
+    roleColumn: string;
+    sessionMissing: string;
+    sessionExpired: string;
+    unableToLoadDashboard: string;
+    loadingDashboard: string;
+    roleUpdated: string;
+    failedToUpdateRole: string;
+    logoutRedirectWarning: string;
+    goToLogin: string;
+    defaultUser: string;
+    navScan: string;
+    navAnalyze: string;
+    navAct: string;
+    navOperationsOverview: string;
+    navWorkspace: string;
+    navEnvironment: string;
+    navAccount: string;
+  }
+> = {
+  en: {
+    dismissNotification: "Dismiss notification",
+    reviewQueue: "Review queue",
+    reviewQueueDescription: "12 cases are waiting for expert validation. Median review time is 38 minutes.",
+    accuracySnapshot: "Accuracy snapshot",
+    accuracySnapshotDescription: "Current agreement with field outcomes: 96.2%.",
+    notes: "Notes",
+    notesDescription: "Focus this week: powdery mildew cluster in west region and false positive reductions on segmented samples.",
+    activeUsers: "Active users",
+    organizations: "Organizations",
+    apiSuccess: "API success",
+    supportSla: "Support SLA",
+    developerWorkspace: "Developer Workspace",
+    developerWorkspaceDescription: "Access integration diagnostics, API payload checks, and release verification tools.",
+    environmentHealth: "Environment Health",
+    environmentHealthDescription: "Status checks and deployment readiness for backend, model, and data services.",
+    signedInAccount: "Signed-in account",
+    noSignedInUser: "No signed-in user found.",
+    roleManagement: "Role management",
+    roleManagementDescription: "Admins and developers can update account access levels from this workspace.",
+    userColumn: "User",
+    emailColumn: "Email",
+    roleColumn: "Role",
+    sessionMissing: "Session missing. Redirecting to login...",
+    sessionExpired: "Session expired. Redirecting to login...",
+    unableToLoadDashboard: "Unable to load dashboard",
+    loadingDashboard: "Loading dashboard...",
+    roleUpdated: "Role updated to {role}.",
+    failedToUpdateRole: "Failed to update role.",
+    logoutRedirectWarning: "Could not terminate session cleanly. Redirecting anyway.",
+    goToLogin: "Go to login",
+    defaultUser: "User",
+    navScan: "Scan",
+    navAnalyze: "Analyze",
+    navAct: "Act",
+    navOperationsOverview: "Operations overview",
+    navWorkspace: "Workspace",
+    navEnvironment: "Environment",
+    navAccount: "Account"
+  },
+  ar: {
+    dismissNotification: "إغلاق الإشعار",
+    reviewQueue: "قائمة المراجعة",
+    reviewQueueDescription: "هناك 12 حالة تنتظر مراجعة الخبير. متوسط وقت المراجعة 38 دقيقة.",
+    accuracySnapshot: "ملخص الدقة",
+    accuracySnapshotDescription: "نسبة التطابق الحالية مع نتائج الحقل: 96.2٪.",
+    notes: "ملاحظات",
+    notesDescription: "التركيز هذا الأسبوع: انتشار البياض الدقيقي في المنطقة الغربية وتقليل الإيجابيات الكاذبة في العينات المجزأة.",
+    activeUsers: "المستخدمون النشطون",
+    organizations: "الجهات",
+    apiSuccess: "نجاح الـ API",
+    supportSla: "الالتزام بالدعم",
+    developerWorkspace: "مساحة المطور",
+    developerWorkspaceDescription: "الوصول إلى تشخيصات التكامل وفحص طلبات الـ API وأدوات التحقق قبل الإصدار.",
+    environmentHealth: "سلامة البيئة",
+    environmentHealthDescription: "فحوصات الحالة وجاهزية النشر للباك والموديل وخدمات البيانات.",
+    signedInAccount: "الحساب المسجل",
+    noSignedInUser: "لا يوجد مستخدم مسجل حاليًا.",
+    roleManagement: "إدارة الأدوار",
+    roleManagementDescription: "يمكن للمشرفين والمطورين تعديل صلاحيات الحسابات من هذه المساحة.",
+    userColumn: "المستخدم",
+    emailColumn: "البريد الإلكتروني",
+    roleColumn: "الدور",
+    sessionMissing: "الجلسة غير موجودة. جارٍ التحويل إلى تسجيل الدخول...",
+    sessionExpired: "انتهت الجلسة. جارٍ التحويل إلى تسجيل الدخول...",
+    unableToLoadDashboard: "تعذر تحميل لوحة التحكم",
+    loadingDashboard: "جارٍ تحميل لوحة التحكم...",
+    roleUpdated: "تم تحديث الدور إلى {role}.",
+    failedToUpdateRole: "فشل تحديث الدور.",
+    logoutRedirectWarning: "تعذر إنهاء الجلسة بشكل نظيف. سيتم التحويل على أي حال.",
+    goToLogin: "الذهاب إلى تسجيل الدخول",
+    defaultUser: "مستخدم",
+    navScan: "فحص",
+    navAnalyze: "تحليل",
+    navAct: "إجراء",
+    navOperationsOverview: "نظرة تشغيلية",
+    navWorkspace: "المساحة",
+    navEnvironment: "البيئة",
+    navAccount: "الحساب"
+  },
+  es: {
+    dismissNotification: "Cerrar notificación",
+    reviewQueue: "Cola de revisión",
+    reviewQueueDescription: "12 casos esperan validación experta. El tiempo medio de revisión es de 38 minutos.",
+    accuracySnapshot: "Resumen de precisión",
+    accuracySnapshotDescription: "Coincidencia actual con los resultados de campo: 96.2%.",
+    notes: "Notas",
+    notesDescription: "Enfoque de esta semana: grupo de oídio en la región oeste y reducción de falsos positivos en muestras segmentadas.",
+    activeUsers: "Usuarios activos",
+    organizations: "Organizaciones",
+    apiSuccess: "Éxito de API",
+    supportSla: "SLA de soporte",
+    developerWorkspace: "Espacio del desarrollador",
+    developerWorkspaceDescription: "Accede a diagnósticos de integración, comprobaciones de cargas API y herramientas de verificación de lanzamientos.",
+    environmentHealth: "Salud del entorno",
+    environmentHealthDescription: "Comprobaciones de estado y preparación de despliegue para backend, modelo y servicios de datos.",
+    signedInAccount: "Cuenta conectada",
+    noSignedInUser: "No se encontró una cuenta conectada.",
+    roleManagement: "Gestión de roles",
+    roleManagementDescription: "Los administradores y desarrolladores pueden actualizar los niveles de acceso desde este espacio.",
+    userColumn: "Usuario",
+    emailColumn: "Correo",
+    roleColumn: "Rol",
+    sessionMissing: "Falta la sesión. Redirigiendo al inicio de sesión...",
+    sessionExpired: "La sesión expiró. Redirigiendo al inicio de sesión...",
+    unableToLoadDashboard: "No se pudo cargar el panel",
+    loadingDashboard: "Cargando panel...",
+    roleUpdated: "Rol actualizado a {role}.",
+    failedToUpdateRole: "No se pudo actualizar el rol.",
+    logoutRedirectWarning: "No se pudo cerrar la sesión limpiamente. Redirigiendo de todos modos.",
+    goToLogin: "Ir al inicio de sesión",
+    defaultUser: "Usuario",
+    navScan: "Escanear",
+    navAnalyze: "Analizar",
+    navAct: "Actuar",
+    navOperationsOverview: "Resumen operativo",
+    navWorkspace: "Espacio",
+    navEnvironment: "Entorno",
+    navAccount: "Cuenta"
+  },
+  hi: {
+    dismissNotification: "सूचना बंद करें",
+    reviewQueue: "रिव्यू कतार",
+    reviewQueueDescription: "12 मामले विशेषज्ञ सत्यापन की प्रतीक्षा कर रहे हैं। औसत समीक्षा समय 38 मिनट है।",
+    accuracySnapshot: "सटीकता सारांश",
+    accuracySnapshotDescription: "फील्ड परिणामों के साथ वर्तमान मिलान: 96.2%.",
+    notes: "नोट्स",
+    notesDescription: "इस सप्ताह का फोकस: पश्चिम क्षेत्र में पाउडरी मिल्ड्यू क्लस्टर और विभाजित नमूनों पर false positive में कमी।",
+    activeUsers: "सक्रिय उपयोगकर्ता",
+    organizations: "संगठन",
+    apiSuccess: "API सफलता",
+    supportSla: "सपोर्ट SLA",
+    developerWorkspace: "डेवलपर वर्कस्पेस",
+    developerWorkspaceDescription: "इंटीग्रेशन डायग्नोस्टिक्स, API payload checks और release verification tools तक पहुंचें।",
+    environmentHealth: "एनवायरनमेंट हेल्थ",
+    environmentHealthDescription: "बैकएंड, मॉडल और डेटा सेवाओं के लिए स्थिति जांच और डिप्लॉयमेंट तैयारी।",
+    signedInAccount: "साइन-इन खाता",
+    noSignedInUser: "कोई साइन-इन उपयोगकर्ता नहीं मिला।",
+    roleManagement: "रोल प्रबंधन",
+    roleManagementDescription: "एडमिन और डेवलपर इस वर्कस्पेस से अकाउंट एक्सेस स्तर अपडेट कर सकते हैं।",
+    userColumn: "उपयोगकर्ता",
+    emailColumn: "ईमेल",
+    roleColumn: "भूमिका",
+    sessionMissing: "सेशन नहीं मिला। लॉगिन पर भेजा जा रहा है...",
+    sessionExpired: "सेशन समाप्त हो गया। लॉगिन पर भेजा जा रहा है...",
+    unableToLoadDashboard: "डैशबोर्ड लोड नहीं हो सका",
+    loadingDashboard: "डैशबोर्ड लोड हो रहा है...",
+    roleUpdated: "भूमिका {role} में अपडेट की गई।",
+    failedToUpdateRole: "भूमिका अपडेट नहीं हो सकी।",
+    logoutRedirectWarning: "सेशन साफ़ तरीके से समाप्त नहीं हो सका। फिर भी रीडायरेक्ट किया जा रहा है।",
+    goToLogin: "लॉगिन पर जाएं",
+    defaultUser: "उपयोगकर्ता",
+    navScan: "स्कैन",
+    navAnalyze: "विश्लेषण",
+    navAct: "कार्रवाई",
+    navOperationsOverview: "ऑपरेशंस अवलोकन",
+    navWorkspace: "वर्कस्पेस",
+    navEnvironment: "एनवायरनमेंट",
+    navAccount: "खाता"
+  },
+  zh: {
+    dismissNotification: "关闭通知",
+    reviewQueue: "审核队列",
+    reviewQueueDescription: "有 12 个案例正在等待专家验证。平均审核时间为 38 分钟。",
+    accuracySnapshot: "准确率概览",
+    accuracySnapshotDescription: "当前与田间结果的一致率为 96.2%。",
+    notes: "备注",
+    notesDescription: "本周重点：西部地区白粉病聚集，以及降低分割样本中的误报。",
+    activeUsers: "活跃用户",
+    organizations: "组织数",
+    apiSuccess: "API 成功率",
+    supportSla: "支持 SLA",
+    developerWorkspace: "开发者工作区",
+    developerWorkspaceDescription: "访问集成诊断、API 载荷检查和发布验证工具。",
+    environmentHealth: "环境健康",
+    environmentHealthDescription: "后端、模型和数据服务的状态检查与部署准备情况。",
+    signedInAccount: "当前登录账户",
+    noSignedInUser: "未找到已登录用户。",
+    roleManagement: "角色管理",
+    roleManagementDescription: "管理员和开发者可以在此工作区更新账户访问级别。",
+    userColumn: "用户",
+    emailColumn: "邮箱",
+    roleColumn: "角色",
+    sessionMissing: "会话缺失。正在跳转到登录页...",
+    sessionExpired: "会话已过期。正在跳转到登录页...",
+    unableToLoadDashboard: "无法加载仪表板",
+    loadingDashboard: "正在加载仪表板...",
+    roleUpdated: "角色已更新为 {role}。",
+    failedToUpdateRole: "角色更新失败。",
+    logoutRedirectWarning: "无法完整结束会话，仍将继续跳转。",
+    goToLogin: "前往登录",
+    defaultUser: "用户",
+    navScan: "扫描",
+    navAnalyze: "分析",
+    navAct: "处理",
+    navOperationsOverview: "运营概览",
+    navWorkspace: "工作区",
+    navEnvironment: "环境",
+    navAccount: "账户"
+  }
+};
+
 function NotificationStack({
   notices,
-  onDismiss
+  onDismiss,
+  dismissLabel
 }: {
   notices: Notice[];
   onDismiss: (id: number) => void;
+  dismissLabel: string;
 }) {
   if (notices.length === 0) return null;
 
@@ -69,7 +317,7 @@ function NotificationStack({
                 type="button"
                 onClick={() => onDismiss(notice.id)}
                 className="ml-auto rounded p-1 opacity-70 transition hover:opacity-100"
-                aria-label="Dismiss notification"
+                aria-label={dismissLabel}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -85,73 +333,71 @@ function FarmerPanel() {
   return <FarmerDashboard />;
 }
 
-function ExpertPanel() {
+function ExpertPanel({copy}: {copy: (typeof ROLE_DASHBOARD_COPY)[AppLocale]}) {
   return (
     <section id="expert-review" data-dashboard-section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 md:grid-cols-3 scroll-mt-6">
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 md:col-span-2">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Review queue</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">12 cases are waiting for expert validation. Median review time is 38 minutes.</p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.reviewQueue}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copy.reviewQueueDescription}</p>
       </article>
       <article id="expert-accuracy" data-dashboard-section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 scroll-mt-6">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Accuracy snapshot</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Current agreement with field outcomes: 96.2%.</p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.accuracySnapshot}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copy.accuracySnapshotDescription}</p>
       </article>
       <article id="expert-notes" data-dashboard-section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 md:col-span-3 scroll-mt-6">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Notes</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Focus this week: powdery mildew cluster in west region and false positive reductions on segmented samples.</p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.notes}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copy.notesDescription}</p>
       </article>
     </section>
   );
 }
 
-function AdminPanel() {
+function AdminPanel({copy}: {copy: (typeof ROLE_DASHBOARD_COPY)[AppLocale]}) {
   return (
     <section id="admin-overview" data-dashboard-section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 md:grid-cols-4 scroll-mt-6">
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">Active users</p>
+        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">{copy.activeUsers}</p>
         <p className="mt-3 text-3xl font-semibold text-zinc-900 dark:text-zinc-100">1,284</p>
       </article>
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">Organizations</p>
+        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">{copy.organizations}</p>
         <p className="mt-3 text-3xl font-semibold text-zinc-900 dark:text-zinc-100">37</p>
       </article>
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">API success</p>
+        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">{copy.apiSuccess}</p>
         <p className="mt-3 text-3xl font-semibold text-zinc-900 dark:text-zinc-100">99.97%</p>
       </article>
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">Support SLA</p>
+        <p className="text-xs uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">{copy.supportSla}</p>
         <p className="mt-3 text-3xl font-semibold text-zinc-900 dark:text-zinc-100">94%</p>
       </article>
     </section>
   );
 }
 
-function DeveloperPanel({user}: {user: UserProfile | null}) {
+function DeveloperPanel({user, copy}: {user: UserProfile | null; copy: (typeof ROLE_DASHBOARD_COPY)[AppLocale]}) {
   return (
     <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 md:grid-cols-3">
       <article id="developer-workspace" data-dashboard-section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 scroll-mt-6">
         <div className="mb-3 inline-flex rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
           <Code2 className="h-4 w-4" />
         </div>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Developer Workspace</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-          Access integration diagnostics, API payload checks, and release verification tools.
-        </p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.developerWorkspace}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copy.developerWorkspaceDescription}</p>
       </article>
       <article id="developer-environment" data-dashboard-section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 scroll-mt-6">
         <div className="mb-3 inline-flex rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
           <ShieldCheck className="h-4 w-4" />
         </div>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Environment Health</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Status checks and deployment readiness for backend, model, and data services.</p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.environmentHealth}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{copy.environmentHealthDescription}</p>
       </article>
       <article id="developer-account" data-dashboard-section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 scroll-mt-6">
         <div className="mb-3 inline-flex rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
           <Users className="h-4 w-4" />
         </div>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Signed-in account</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{user?.email ?? "No signed-in user found."}</p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.signedInAccount}</h3>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{user?.email ?? copy.noSignedInUser}</p>
       </article>
     </section>
   );
@@ -160,27 +406,27 @@ function DeveloperPanel({user}: {user: UserProfile | null}) {
 function RoleManager({
   users,
   currentUser,
-  onUpdate
+  onUpdate,
+  copy
 }: {
   users: UserProfile[];
   currentUser: UserProfile | null;
   onUpdate: (userId: string, role: UserRole) => Promise<void>;
+  copy: (typeof ROLE_DASHBOARD_COPY)[AppLocale];
 }) {
   return (
     <section id="role-management" data-dashboard-section className="mx-auto mb-6 w-full max-w-7xl px-4 scroll-mt-6">
       <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Role management</h3>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          Admins and developers can update account access levels from this workspace.
-        </p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{copy.roleManagement}</h3>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{copy.roleManagementDescription}</p>
 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[680px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">User</th>
-                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">Email</th>
-                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">Role</th>
+                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">{copy.userColumn}</th>
+                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">{copy.emailColumn}</th>
+                <th className="pb-2 font-medium text-zinc-500 dark:text-zinc-400">{copy.roleColumn}</th>
               </tr>
             </thead>
             <tbody>
@@ -212,8 +458,9 @@ function RoleManager({
 }
 
 export function RoleDashboard() {
-  const locale = useLocale();
+  const locale = useLocale() as AppLocale;
   const t = useTranslations("dashboard");
+  const copy = ROLE_DASHBOARD_COPY[locale] ?? ROLE_DASHBOARD_COPY.en;
   const rtl = locale === "ar";
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [redirecting, setRedirecting] = useState<boolean>(false);
@@ -238,39 +485,39 @@ export function RoleDashboard() {
   const navItems = useMemo<DashboardNavItem[]>(() => {
     if (role === "farmer") {
       return [
-        {id: "scan", label: "Scan", icon: "leaf"},
-        {id: "analyze", label: "Analyze", icon: "activity"},
-        {id: "act", label: "Act", icon: "clipboard"},
+        {id: "scan", label: copy.navScan, icon: "leaf"},
+        {id: "analyze", label: copy.navAnalyze, icon: "activity"},
+        {id: "act", label: copy.navAct, icon: "clipboard"},
         {id: "scan-history", label: t("history.title"), icon: "history", href: "/scan-history"}
       ];
     }
 
     if (role === "expert") {
       return [
-        {id: "expert-review", label: "Review queue", icon: "clipboard"},
-        {id: "expert-accuracy", label: "Accuracy snapshot", icon: "shield"},
-        {id: "expert-notes", label: "Notes", icon: "message"}
+        {id: "expert-review", label: copy.reviewQueue, icon: "clipboard"},
+        {id: "expert-accuracy", label: copy.accuracySnapshot, icon: "shield"},
+        {id: "expert-notes", label: copy.notes, icon: "message"}
       ];
     }
 
     if (role === "admin") {
       return [
-        {id: "admin-overview", label: "Operations overview", icon: "activity"},
-        {id: "role-management", label: "Role management", icon: "users"}
+        {id: "admin-overview", label: copy.navOperationsOverview, icon: "activity"},
+        {id: "role-management", label: copy.roleManagement, icon: "users"}
       ];
     }
 
     if (role === "developer") {
       return [
-        {id: "developer-workspace", label: "Workspace", icon: "flask"},
-        {id: "developer-environment", label: "Environment", icon: "shield"},
-        {id: "developer-account", label: "Account", icon: "users"},
-        {id: "role-management", label: "Role management", icon: "users"}
+        {id: "developer-workspace", label: copy.navWorkspace, icon: "flask"},
+        {id: "developer-environment", label: copy.navEnvironment, icon: "shield"},
+        {id: "developer-account", label: copy.navAccount, icon: "users"},
+        {id: "role-management", label: copy.roleManagement, icon: "users"}
       ];
     }
 
     return [];
-  }, [role, t]);
+  }, [copy, role, t]);
 
   useEffect(() => {
     if (navItems.length > 0) {
@@ -323,7 +570,7 @@ export function RoleDashboard() {
       setRole(cachedRole);
       setLoading(false);
     }
-  }, []);
+  }, [copy]);
 
   useEffect(() => {
     if (!loading || role !== null) {
@@ -350,7 +597,7 @@ export function RoleDashboard() {
           if (!cancelled) {
             clearStoredTokens();
             setRedirecting(true);
-            pushNotice("warn", "Session missing. Redirecting to login...");
+            pushNotice("warn", copy.sessionMissing);
             // Use setTimeout to ensure redirect happens after render
             setTimeout(() => {
               if (!cancelled) {
@@ -381,11 +628,11 @@ export function RoleDashboard() {
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Unable to load dashboard";
+          const message = err instanceof Error ? err.message : copy.unableToLoadDashboard;
           if (message.toLowerCase().includes("session expired") || message.toLowerCase().includes("unauthorized")) {
             clearStoredTokens();
             setRedirecting(true);
-            pushNotice("warn", "Session expired. Redirecting to login...");
+            pushNotice("warn", copy.sessionExpired);
             setTimeout(() => {
               if (!cancelled) {
                 window.location.replace("/login");
@@ -423,9 +670,9 @@ export function RoleDashboard() {
         setRole(updated.role);
         storeUserRole(updated.role);
       }
-      pushNotice("success", `Role updated to ${updated.role}.`);
+      pushNotice("success", copy.roleUpdated.replace("{role}", updated.role));
     } catch (err) {
-      pushNotice("error", err instanceof Error ? err.message : "Failed to update role.");
+      pushNotice("error", err instanceof Error ? err.message : copy.failedToUpdateRole);
     }
   };
 
@@ -442,7 +689,7 @@ export function RoleDashboard() {
       <main className="flex min-h-[100svh] items-center justify-center px-4">
         <div className="flex items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 text-sm text-[var(--text-secondary)] shadow-sm">
           <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
-          <span>Loading dashboard...</span>
+          <span>{copy.loadingDashboard}</span>
         </div>
       </main>
     );
@@ -451,7 +698,7 @@ export function RoleDashboard() {
   if (error) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-10">
-        <NotificationStack notices={notices} onDismiss={(id) => setNotices((prev) => prev.filter((notice) => notice.id !== id))} />
+        <NotificationStack notices={notices} dismissLabel={copy.dismissNotification} onDismiss={(id) => setNotices((prev) => prev.filter((notice) => notice.id !== id))} />
         <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-6 text-sm text-[var(--text-secondary)]">
           <p>{error}</p>
           <Button
@@ -461,12 +708,12 @@ export function RoleDashboard() {
               try {
                 await logoutCurrentSession();
               } catch {
-                pushNotice("warn", "Could not terminate session cleanly. Redirecting anyway.");
+                pushNotice("warn", copy.logoutRedirectWarning);
               }
               window.location.href = "/login";
             }}
           >
-            Go to login
+            {copy.goToLogin}
           </Button>
         </div>
       </main>
@@ -475,7 +722,7 @@ export function RoleDashboard() {
 
   return (
     <>
-      <NotificationStack notices={notices} onDismiss={(id) => setNotices((prev) => prev.filter((notice) => notice.id !== id))} />
+      <NotificationStack notices={notices} dismissLabel={copy.dismissNotification} onDismiss={(id) => setNotices((prev) => prev.filter((notice) => notice.id !== id))} />
       <DashboardShell
         navItems={navItems}
         activeSection={activeSection}
@@ -486,20 +733,20 @@ export function RoleDashboard() {
               {(user?.full_name || user?.email || "U").charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{user?.full_name || user?.email || "User"}</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{user?.full_name || user?.email || copy.defaultUser}</p>
               {role ? <p className="text-xs text-[var(--text-tertiary)]">{t(`sidebar.role.${role}`)}</p> : null}
             </div>
           </div>
         }
         contentClassName="overflow-y-auto pb-4"
       >
-        {role === "expert" ? <ExpertPanel /> : null}
-        {role === "admin" ? <AdminPanel /> : null}
-        {role === "developer" ? <DeveloperPanel user={user} /> : null}
+        {role === "expert" ? <ExpertPanel copy={copy} /> : null}
+        {role === "admin" ? <AdminPanel copy={copy} /> : null}
+        {role === "developer" ? <DeveloperPanel user={user} copy={copy} /> : null}
         {role === "farmer" ? <FarmerPanel /> : null}
 
         {role === "admin" || role === "developer" ? (
-          <RoleManager users={users} currentUser={user} onUpdate={updateRole} />
+          <RoleManager users={users} currentUser={user} onUpdate={updateRole} copy={copy} />
         ) : null}
       </DashboardShell>
     </>

@@ -52,7 +52,7 @@
     "footerTerms": "Términos",
     "footerContact": "Contacto",
     "copyright": "© 2025 Limarise. Todos los derechos reservados.",
-    "tagline": "Superando limites"
+    "tagline": "Superando límites"
   },
   "auth": {
     "common": {
@@ -161,7 +161,11 @@
     },
     "sidebar": {
       "account": "Cuenta",
-      "quickActions": "Acciones rápidas",
+      "menu": "Menú",
+      "home": "Inicio",
+      "chatbot": "Chatbot",
+      "community": "Comunidad",
+      "communitySoon": "La comunidad llegará pronto.",
       "logout": "Cerrar sesión",
       "role": {
         "farmer": "Agricultor",

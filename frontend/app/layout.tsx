@@ -2,27 +2,17 @@ import type { Metadata } from "next";
 import { Sora } from "next/font/google";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import {NextIntlClientProvider} from "next-intl";
-import type {AbstractIntlMessages} from "next-intl";
+import {cookies} from "next/headers";
+
+import {AppProviders} from "@/components/providers/app-providers";
+import {LocaleSync} from "@/components/ui/locale-sync";
+import {routing, type AppLocale} from "@/i18n/routing";
 import arMessages from "@/messages/ar.json";
 import enMessages from "@/messages/en.json";
 import esMessages from "@/messages/es.json";
 import hiMessages from "@/messages/hi.json";
 import zhMessages from "@/messages/zh.json";
-
-import {AppProviders} from "@/components/providers/app-providers";
-import {LocaleSync} from "@/components/ui/locale-sync";
-import {routing, type AppLocale} from "@/i18n/routing";
 import "./globals.css";
-
-const STATIC_EXPORT_LOCALE = (process.env.NEXT_PUBLIC_STATIC_LOCALE ?? routing.defaultLocale) as AppLocale;
-
-const STATIC_MESSAGES_BY_LOCALE: Record<AppLocale, AbstractIntlMessages> = {
-  en: enMessages,
-  zh: zhMessages,
-  hi: hiMessages,
-  es: esMessages,
-  ar: arMessages
-};
 
 const sora = Sora({
   subsets: ["latin", "latin-ext"],
@@ -42,9 +32,23 @@ export const metadata: Metadata = {
   description: "Advanced plant disease detection and treatment recommendations powered by AI"
 };
 
+export const dynamic = "force-dynamic";
+
+const messagesByLocale = {
+  en: enMessages,
+  zh: zhMessages,
+  hi: hiMessages,
+  es: esMessages,
+  ar: arMessages
+} as const;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = routing.locales.includes(STATIC_EXPORT_LOCALE) ? STATIC_EXPORT_LOCALE : routing.defaultLocale;
-  const messages = STATIC_MESSAGES_BY_LOCALE[locale];
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = routing.locales.includes(cookieLocale as AppLocale)
+    ? (cookieLocale as AppLocale)
+    : routing.defaultLocale;
+  const messages = messagesByLocale[locale];
   const rtl = locale === "ar";
 
   return (

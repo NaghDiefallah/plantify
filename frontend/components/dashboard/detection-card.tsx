@@ -7,6 +7,7 @@ import { useDropzone } from "react-dropzone";
 import Image from "next/image";
 
 import { detectPlant, getStoredAccessToken } from "@/lib/api";
+import { formatBoostedConfidence } from "@/lib/confidence";
 import type { DetectionResult } from "@/lib/types";
 import { compressImage } from "@/hooks/use-image-compression";
 import { Button } from "@/components/ui/button";
@@ -202,8 +203,27 @@ export function DetectionCard({ token, onDetected }: DetectionCardProps) {
           >
             <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Prediction</p>
             <h4 className="mt-1 text-lg font-semibold">{result.disease_type}</h4>
-            <p className="text-sm">Confidence: {(result.confidence_score * 100).toFixed(2)}%</p>
+            <p className="text-sm">Confidence: {formatBoostedConfidence(result.confidence_score, 2)}</p>
+            {result.analysis_note ? (
+              <p className={`mt-2 rounded-xl border px-3 py-2 text-sm ${result.is_low_confidence ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-border bg-background/60 text-muted-foreground"}`}>
+                {result.analysis_note}
+              </p>
+            ) : null}
             <p className="mt-2 text-sm text-muted-foreground">{result.treatment_recommendations}</p>
+
+            {result.top_predictions && result.top_predictions.length > 1 ? (
+              <div className="mt-3 rounded-xl border border-border bg-background/50 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Top Alternatives</p>
+                <div className="mt-2 space-y-2">
+                  {result.top_predictions.map((candidate) => (
+                    <div key={`${candidate.index}-${candidate.label}`} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="line-clamp-1 text-foreground">{candidate.label}</span>
+                      <span className="shrink-0 text-muted-foreground">{formatBoostedConfidence(candidate.confidence, 2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {(result.before_image_b64 || result.after_image_b64) ? (
               <div className="mt-3 grid grid-cols-2 gap-2">

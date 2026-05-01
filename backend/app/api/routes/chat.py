@@ -17,6 +17,7 @@ class ChatMessage(BaseModel):
     """User chat message."""
     message: str
     scan_context: Optional[dict] = None
+    conversation_history: Optional[list[dict]] = None
 
 
 class GlossaryLookup(BaseModel):
@@ -58,7 +59,8 @@ async def chat_stream(
         try:
             async for chunk in service.chat_stream(
                 message=request.message,
-                scan_context=request.scan_context
+                scan_context=request.scan_context,
+                conversation_history=request.conversation_history,
             ):
                 if chunk:
                     yield f"data: {chunk}\n\n"
@@ -90,7 +92,8 @@ async def chat(
     try:
         response = await service.chat(
             message=request.message,
-            scan_context=request.scan_context
+            scan_context=request.scan_context,
+            conversation_history=request.conversation_history,
         )
         return {
             "message": response,

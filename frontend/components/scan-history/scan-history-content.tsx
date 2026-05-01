@@ -3,10 +3,13 @@
 import {ImageIcon, Search, AlertCircle, CheckCircle2, Info, X} from "lucide-react";
 import {useEffect, useMemo, useState} from "react";
 import Image from "next/image";
-import {useTranslations} from "next-intl";
+import {useLocale, useTranslations} from "next-intl";
 import {useQuery} from "@tanstack/react-query";
 
 import {fetchHistory, getStoredAccessToken} from "@/lib/api";
+import {boostDisplayedConfidence, formatBoostedConfidence} from "@/lib/confidence";
+import {getDashboardCopy} from "@/lib/dashboard-copy";
+import type {AppLocale} from "@/i18n/routing";
 import type {ScanHistory} from "@/lib/types";
 import {cn} from "@/lib/utils";
 
@@ -43,6 +46,8 @@ function HistoryImage({row}: {row: ScanHistory}) {
 
 export function ScanHistoryContent() {
   const t = useTranslations("dashboard");
+  const locale = useLocale() as AppLocale;
+  const copy = getDashboardCopy(locale).scanHistory;
   const [token, setToken] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -67,7 +72,7 @@ export function ScanHistoryContent() {
   };
 
   const historyQuery = useQuery({
-    queryKey: ["history", token],
+    queryKey: ["history"],
     queryFn: () => fetchHistory(token ?? ""),
     enabled: Boolean(token)
   });
@@ -109,7 +114,7 @@ export function ScanHistoryContent() {
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "healthy" ? diseaseLabel.includes("healthy") : !diseaseLabel.includes("healthy"));
-      const matchesConfidence = row.confidence_score >= minimumConfidenceValue;
+      const matchesConfidence = boostDisplayedConfidence(row.confidence_score) >= minimumConfidenceValue;
       const matchesStart = !startDate || createdAt >= new Date(`${startDate}T00:00:00`).getTime();
       const matchesEnd = !endDate || createdAt <= new Date(`${endDate}T23:59:59`).getTime();
 
@@ -140,7 +145,7 @@ export function ScanHistoryContent() {
                     type="button"
                     onClick={() => setNotices((prev) => prev.filter((n) => n.id !== notice.id))}
                     className="ml-auto rounded p-1 opacity-70 transition hover:opacity-100"
-                    aria-label="Dismiss notification"
+                    aria-label={copy.dismiss}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -170,13 +175,13 @@ export function ScanHistoryContent() {
               onClick={() => setAdvancedOpen((current) => !current)}
               className="h-10 rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--text-primary)] hover:border-[#22c55e]/50"
             >
-              {advancedOpen ? "Hide filters" : "Advanced search"}
+              {advancedOpen ? copy.hideFilters : copy.advancedSearch}
             </button>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {[
-              {value: "all", label: "All time"},
+              {value: "all", label: copy.allTime},
               {value: "24h", label: "24h"},
               {value: "7d", label: "7d"},
               {value: "30d", label: "30d"},
@@ -203,13 +208,13 @@ export function ScanHistoryContent() {
       {advancedOpen ? (
         <div className="mb-4 grid gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--bg-primary)] p-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Domain</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{copy.domain}</span>
             <select
               value={domainFilter}
               onChange={(event) => setDomainFilter(event.target.value)}
               className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
             >
-              <option value="all">All domains</option>
+              <option value="all">{copy.allDomains}</option>
               {domains.map((domain) => (
                 <option key={domain} value={domain}>{domain}</option>
               ))}
@@ -217,26 +222,26 @@ export function ScanHistoryContent() {
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Status</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{copy.status}</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
               className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
             >
-              <option value="all">All outcomes</option>
-              <option value="healthy">Healthy only</option>
-              <option value="attention">Needs attention</option>
+              <option value="all">{copy.allOutcomes}</option>
+              <option value="healthy">{copy.healthyOnly}</option>
+              <option value="attention">{copy.needsAttention}</option>
             </select>
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Min confidence</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{copy.minConfidence}</span>
             <select
               value={minConfidence}
               onChange={(event) => setMinConfidence(event.target.value)}
               className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
             >
-              <option value="0">Any confidence</option>
+              <option value="0">{copy.anyConfidence}</option>
               <option value="50">50%+</option>
               <option value="70">70%+</option>
               <option value="85">85%+</option>
@@ -244,7 +249,7 @@ export function ScanHistoryContent() {
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Start date</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{copy.startDate}</span>
             <input
               type="date"
               value={startDate}
@@ -254,7 +259,7 @@ export function ScanHistoryContent() {
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">End date</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{copy.endDate}</span>
             <input
               type="date"
               value={endDate}
@@ -266,7 +271,7 @@ export function ScanHistoryContent() {
       ) : null}
 
       <div className="mb-4 flex items-center justify-between gap-3 text-xs text-[var(--text-tertiary)]">
-        <span>{filteredRows.length} result{filteredRows.length === 1 ? "" : "s"}</span>
+        <span>{filteredRows.length} {copy.results}</span>
         {(query || domainFilter !== "all" || statusFilter !== "all" || minConfidence !== "0" || startDate || endDate || timeFilter !== "all") ? (
           <button
             type="button"
@@ -281,7 +286,7 @@ export function ScanHistoryContent() {
             }}
             className="font-semibold text-[var(--text-primary)] hover:text-[#22c55e]"
           >
-            Reset filters
+            {copy.resetFilters}
           </button>
         ) : null}
       </div>
@@ -319,7 +324,7 @@ export function ScanHistoryContent() {
               </div>
               <div className="text-right">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("result.metrics.modelConfidence")}</p>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{(row.confidence_score * 100).toFixed(1)}%</p>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{formatBoostedConfidence(row.confidence_score, 1)}</p>
               </div>
             </div>
           ))

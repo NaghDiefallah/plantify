@@ -32,8 +32,21 @@ class Settings(BaseSettings):
     rate_limit_signup_per_minute: int = 10
     rate_limit_login_per_minute: int = 20
     rate_limit_detect_per_minute: int = 60
+    password_reset_code_expire_minutes: int = 10
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Plantify"
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
 
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost,http://127.0.0.1"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001,"
+        "http://localhost,http://127.0.0.1"
+    )
     cors_origin_regex: str = (
         r"^(tauri://localhost|https://tauri\.localhost|http://tauri\.localhost|capacitor://localhost|app://localhost|https://localhost|http://localhost)$"
     )

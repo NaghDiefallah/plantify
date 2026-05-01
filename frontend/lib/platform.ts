@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-const LOCALHOST_API_URL = "http://localhost:8000/api";
+const LOCALHOST_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "http://localhost:8000/api";
 const MOBILE_DEV_API_URL = process.env.NEXT_PUBLIC_MOBILE_DEV_API_URL?.trim() || "http://192.168.1.50:8000/api";
 const PRODUCTION_API_URL = process.env.NEXT_PUBLIC_PRODUCTION_API_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "https://plantify.limarise.com/api";
 

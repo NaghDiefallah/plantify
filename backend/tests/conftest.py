@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.api.routes import auth, dashboard, detection, users
+from app.api.routes import admin, auth, community, dashboard, detection, social, users
 from app.db.base import Base
 from app.db.session import get_session
 from app.services.rate_limiter import clear_rate_limit_state
@@ -45,6 +45,9 @@ async def client(tmp_path: pytest.TempPathFactory) -> AsyncGenerator[AsyncClient
     app.include_router(users.router, prefix="/api")
     app.include_router(detection.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
+    app.include_router(community.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
+    app.include_router(social.router, prefix="/api")
     app.dependency_overrides[get_session] = override_get_session
 
     detection.router.ai_service = FakeAIService()

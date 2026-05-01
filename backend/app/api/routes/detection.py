@@ -59,6 +59,14 @@ async def detect(
                 f"Plant-likelihood score: {plant_score:.2f}. Please upload a clearer plant image."
             ),
         )
+    if bool(prediction.get("is_uncertain", False)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "The model is not confident enough about this image. "
+                "Please upload a clearer close-up of a single affected leaf with better lighting."
+            ),
+        )
 
     label = prediction["label"]
     confidence = prediction["confidence"]
@@ -78,6 +86,7 @@ async def detect(
         recommendation=recommendation,
         domain=domain,
         image_sha256=digest,
+        entry_kind="scan",
     )
     session.add(scan)
     await session.commit()
@@ -101,4 +110,7 @@ async def detect(
         image_sha256=digest,
         before_image_b64=before_b64,
         after_image_b64=after_b64,
+        is_low_confidence=bool(prediction.get("is_low_confidence", False)),
+        analysis_note=prediction.get("analysis_note"),
+        top_predictions=prediction.get("top_predictions", []),
     )
