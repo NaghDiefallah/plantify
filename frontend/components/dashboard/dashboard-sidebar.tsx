@@ -18,10 +18,11 @@ import {
 import {useEffect, useState} from "react";
 import {useLocale} from "next-intl";
 
-import {Link, usePathname} from "@/i18n/navigation";
+import {usePathname} from "@/i18n/navigation";
 import {getStoredAccessToken, logoutCurrentSession} from "@/lib/api";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
+import {AppLink} from "@/components/app-link";
 
 export type DashboardNavItem = {
   id: string;
@@ -67,7 +68,7 @@ function NavLink({
   icon: ReturnType<typeof iconForNavItem>;
 }) {
   return (
-    <Link
+    <AppLink
       href={href}
       className={cn(
         "group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all",
@@ -85,7 +86,7 @@ function NavLink({
           {label}
         </span>
       ) : null}
-    </Link>
+    </AppLink>
   );
 }
 

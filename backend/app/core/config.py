@@ -55,8 +55,12 @@ class Settings(BaseSettings):
     @property
     def sqlite_url(self) -> str:
         db_path = Path(self.sqlite_path)
+        if not db_path.is_absolute():
+            db_path = BACKEND_DIR / db_path
+
+        db_path = db_path.resolve()
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        return f"sqlite+aiosqlite:///{db_path}"
+        return f"sqlite+aiosqlite:///{db_path.as_posix()}"
 
     @property
     def cors_origin_list(self) -> list[str]:

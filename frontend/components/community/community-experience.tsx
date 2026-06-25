@@ -52,12 +52,12 @@ import type {
   UserProfile,
   UserRecognitionUpdatePayload
 } from "@/lib/types";
-import {Link} from "@/i18n/navigation";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {cn} from "@/lib/utils";
+import {AppLink} from "@/components/app-link";
 
 type CommunityExperienceProps = {
   profile: UserProfile | null;
@@ -1533,9 +1533,9 @@ export function CommunityExperience({profile, initialPostId}: CommunityExperienc
                         Report
                       </button>
 
-                      <Link href={`/community/post/${post.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--card-border)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">
+                      <AppLink href={`/community/post/${post.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--card-border)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">
                         Open thread
-                      </Link>
+                      </AppLink>
                     </div>
                   </Card>
                 ))}

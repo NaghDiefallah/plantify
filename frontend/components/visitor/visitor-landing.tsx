@@ -1,10 +1,11 @@
 ﻿"use client";
 
 import {useState, useRef, useCallback, useLayoutEffect, useMemo, type TouchEvent, type PointerEvent} from "react";
-import {Link} from "@/i18n/navigation";
 import {motion} from "framer-motion";
 import {ArrowRight, ChevronLeft, ChevronRight, CircleUserRound} from "lucide-react";
 import {useTranslations} from "next-intl";
+import {toAppHref} from "@/lib/app-href";
+import {AppLink} from "@/components/app-link";
 
 const TESTIMONIALS = [
   {
@@ -218,13 +219,13 @@ export function VisitorLanding() {
               animate={{y: [0, -3, 0]}}
               transition={{duration: 2.4, repeat: Infinity, ease: "easeInOut"}}
             >
-              <Link
-              href="/dashboard"
+              <AppLink
+              href={toAppHref("/dashboard")}
               className="inline-flex h-11 items-center rounded-lg bg-[#22c55e] px-5 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
             >
               {t("ctaPrimary")}
               <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
+            </AppLink>
             </motion.div>
           </motion.div>
       </section>

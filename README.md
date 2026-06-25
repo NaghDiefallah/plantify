@@ -110,6 +110,25 @@ cd backend
 pytest -q
 ```
 
+## Production Readiness Snapshot
+
+Current production baseline in this repository:
+
+- FastAPI service includes auth, request IDs, rate limiting, metrics, readiness checks, and production configuration validation.
+- Frontend and backend are packaged into containers and deployed through the `Publish` workflow.
+- Release artifacts are generated through `Cross-Platform Release` and include `checksums.txt`.
+- Desktop and mobile release builds are automated for supported targets.
+
+Current gaps before enterprise-grade operation:
+
+- No required pre-deploy quality gate workflow that blocks production rollout on failed tests, security scans, or policy checks.
+- No centralized telemetry stack and alert routing configuration in repo (metrics endpoint exists, but dashboarding and alerting are external).
+- No staged environment promotion model (for example, dev -> staging -> production with enforced approvals and smoke checks).
+- SQLite plus single-host Docker Compose remains the default deployment shape; this requires explicit backup, restore, and failover runbook maturity for high-availability expectations.
+- No in-repo SBOM, container vulnerability, and static code analysis enforcement as release blockers.
+
+See [ROADMAP.md](ROADMAP.md) for the active hardening plan and [SECURITY.md](SECURITY.md) for the current security policy and control boundaries.
+
 ## Automation
 
 The repo currently keeps automation intentionally narrow. There are three workflows only:

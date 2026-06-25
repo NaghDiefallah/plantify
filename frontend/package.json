@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:static": "node scripts/build-static.mjs",
-    "start": "next start",
+    "start": "bun scripts/serve-static.mjs",
     "lint": "next lint",
     "e2e:smoke": "node scripts/e2e-smoke.mjs",
     "cap:sync": "cap sync",

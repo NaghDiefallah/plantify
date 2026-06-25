@@ -1,6 +1,6 @@
 # Security Policy
 
-This document describes the security posture that is actually present in the current Plantify repository and how to report vulnerabilities responsibly.
+This document describes the security posture currently implemented in Plantify, how to report vulnerabilities, and which controls are still pending for enterprise-grade operation.
 
 ## Reporting a Vulnerability
 
@@ -46,6 +46,17 @@ Operational controls present in automation today:
 - release artifacts are published with `checksums.txt`
 - Telegram notifications run only after the release workflow completes
 
+## Minimum Production Baseline
+
+The following baseline is expected for production deployments using the current repository shape:
+
+- `APP_ENV=production` with backend production validators passing
+- secure and non-placeholder `SECRET_KEY` and `ROLE_ELEVATION_CODE`
+- explicit and non-localhost CORS allowlist
+- deploy-time secret bundle validation in CI (`ROOT_ENV_FILE`, `BACKEND_ENV_FILE`, `FRONTEND_ENV_FILE`)
+- health and readiness endpoints monitored by the runtime platform
+- periodic backup and restore drills for persistent data volumes
+
 ## Release Verification
 
 Current GitHub releases publish SHA-256 checksums for release assets.
@@ -75,6 +86,16 @@ The current deploy path expects these secret bundles to be managed outside the r
 
 Do not commit `.env` files, keystores, provisioning profiles, or production database copies to the repository.
 
+## Enterprise Hardening Gaps
+
+The following controls are not yet fully enforced as part of mandatory automation in this repository:
+
+- required CI gates for static analysis, dependency vulnerability scans, and container image scans
+- SBOM generation and artifact attestations as hard release blockers
+- codified staged promotion policy (staging verification before production rollout)
+- centralized observability and alert routing configuration as versioned infrastructure
+- formal incident response playbooks with tested RTO/RPO targets
+
 ## Secure Contribution Guidance
 
 - Keep security-sensitive changes small and reviewable.
@@ -86,38 +107,23 @@ Do not commit `.env` files, keystores, provisioning profiles, or production data
 
 The repository still contains historical signing and security-support files that are not part of the active three-workflow automation path. If you rely on those files, verify them manually before assuming they are maintained.
 
----
-
-## Frequently Asked Questions
-
-**Q: How often are dependencies updated?**  
-A: Automated via Dependabot weekly. Critical security fixes applied immediately.
-
-**Q: Can I audit the source code?**  
-A: Yes! Repository is open-source. Code audits welcome via responsible disclosure.
-
-**Q: Is Plantify HIPAA compliant?**  
-A: Not officially, but the architecture supports HIPAA-level security controls.
-
-**Q: How do you handle zero-day vulnerabilities?**  
-A: We monitor security advisories and apply patches within 24-48 hours of disclosure.
+Some links and examples in historical docs may refer to older release paths. Treat workflow files in `.github/workflows` as the source of truth.
 
 ---
 
 ## Related Documents
 
-- [Contributing Guide](../contributing/guide.md) — Security in code contributions
-- [Deployment Guide](../deployment/docker.md) — Secure deployment practices
-- [Release Process](./process.md) — How releases are authenticated
-- [Privacy Policy](https://plantify.example.com/privacy) — Data handling
+- [README.md](README.md) - repository overview and production snapshot
+- [ROADMAP.md](ROADMAP.md) - active hardening and delivery priorities
+- [docs/security/verification.md](docs/security/verification.md) - release artifact verification guidance
 
 ---
 
 ## History
 
-**Last Updated**: April 8, 2026  
-**Next Review**: April 8, 2027
+**Last Updated**: June 25, 2026  
+**Next Review**: September 30, 2026
 
 ---
 
-**Questions?** Email: security@plantify.example.com
+**Questions?** Email: security@plantify.com

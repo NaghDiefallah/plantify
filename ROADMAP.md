@@ -1,6 +1,6 @@
 # Plantify Roadmap
 
-Updated: 2026-04-10
+Updated: 2026-06-25
 Scope: active roadmap for the current Next.js, FastAPI, Tauri, and model-delivery stack.
 
 ## Current State
@@ -45,7 +45,19 @@ Next priorities:
 - Consolidate deploy, rollback, and recovery guidance into a smaller set of trusted runbooks.
 - Add backup and restore drill evidence for production SQLite data.
 
-### 4. Testing
+### 4. Enterprise Readiness
+
+Status: in progress
+
+Next priorities:
+
+- Add a required quality gate workflow that blocks deploy on failing tests, lint, and policy checks.
+- Introduce mandatory security checks (dependency scanning, static analysis, and container scan) in CI.
+- Define and document environment promotion gates (dev to staging to production) with approval points.
+- Add versioned observability standards: required metrics, log fields, and alert thresholds.
+- Define incident response ownership, escalation paths, and RTO/RPO targets.
+
+### 5. Testing
 
 Status: in progress
 
@@ -55,7 +67,11 @@ Next priorities:
 - Add backend tests for label parsing and non-plant edge cases.
 - Add artifact smoke coverage for checkpoint-to-ONNX export across supported model architectures.
 
-### 5. Documentation Hygiene
+Quality gate target:
+
+- Require passing tests and lint for backend and frontend before merge into `main`.
+
+### 6. Documentation Hygiene
 
 Status: in progress
 
@@ -64,6 +80,10 @@ Next priorities:
 - Remove or merge stale top-level docs that describe workflows and security controls no longer present.
 - Document the expected dataset structure and the preferred training entrypoint by environment.
 - Keep README, roadmap, and security policy aligned with the actual three-workflow automation setup.
+
+Definition of done target:
+
+- Publish one authoritative operations runbook set for deploy, rollback, backup, restore, and incident triage.
 
 ## Guardrails
 

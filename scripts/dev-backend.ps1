@@ -2,12 +2,28 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot  = Split-Path -Parent $PSScriptRoot
 $pythonExe = Join-Path $repoRoot 'venv\Scripts\python.exe'
+$venvRoot = Join-Path $repoRoot 'venv'
 $backendRoot = Join-Path $repoRoot 'backend'
 $requirementsFile = Join-Path $backendRoot 'requirements.txt'
 $requirementsStamp = Join-Path $repoRoot 'venv\.backend-requirements.sha256'
 
 if (-not (Test-Path $pythonExe)) {
-    throw "Python virtual environment not found at $pythonExe"
+    Write-Host "[backend] Python virtual environment not found; creating at $venvRoot"
+
+    $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
+    $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+
+    if ($pyLauncher) {
+        & $pyLauncher.Source -3 -m venv $venvRoot
+    } elseif ($pythonCmd) {
+        & $pythonCmd.Source -m venv $venvRoot
+    } else {
+        throw "No Python executable found. Install Python 3 and retry."
+    }
+
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
+        throw "Failed to create Python virtual environment at $venvRoot"
+    }
 }
 
 if (-not (Test-Path $requirementsFile)) {
@@ -21,8 +37,24 @@ function Test-PythonModule {
     return $LASTEXITCODE -eq 0
 }
 
+function Get-FileSha256 {
+    param([string]$Path)
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            return (($sha256.ComputeHash($stream) | ForEach-Object { $_.ToString('x2') }) -join '')
+        } finally {
+            $stream.Dispose()
+        }
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
 function Sync-BackendDependencies {
-    $requirementsHash = (Get-FileHash -Path $requirementsFile -Algorithm SHA256).Hash.Trim().ToLowerInvariant()
+    $requirementsHash = (Get-FileSha256 -Path $requirementsFile).Trim().ToLowerInvariant()
     $installedHash = if (Test-Path $requirementsStamp) {
         (Get-Content -Path $requirementsStamp -Raw).Trim().ToLowerInvariant()
     } else {

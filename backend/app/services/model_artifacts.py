@@ -5,6 +5,10 @@ import torch.nn as nn
 from torchvision import models
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+REPO_ROOT = BACKEND_DIR.parent
+
+
 def build_model(arch: str, num_classes: int) -> nn.Module:
     arch_lower = arch.lower()
 
@@ -42,9 +46,14 @@ def resolve_checkpoint_path(explicit_path: str | Path) -> Path:
     if path.exists():
         return path
 
-    backend_dir = Path(__file__).resolve().parents[2]
-    fallback = backend_dir / "model" / "plantify_model.pth"
-    if fallback.exists():
-        return fallback
+    backend_fallback = BACKEND_DIR / "model" / "plantify_model.pth"
+    if backend_fallback.exists():
+        return backend_fallback
 
-    raise FileNotFoundError(f"Checkpoint not found at {path} or {fallback}")
+    repo_fallback = REPO_ROOT / "plantify_model.pth"
+    if repo_fallback.exists():
+        return repo_fallback
+
+    raise FileNotFoundError(
+        f"Checkpoint not found at {path}, {backend_fallback}, or {repo_fallback}"
+    )

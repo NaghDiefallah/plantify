@@ -4,13 +4,15 @@ import type {ReactNode} from "react";
 import {useEffect, useState} from "react";
 import {Settings} from "lucide-react";
 
-import {Link, usePathname} from "@/i18n/navigation";
+import {usePathname} from "@/i18n/navigation";
 import {DashboardSidebar, type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {DesktopTitleBar} from "@/components/layout/DesktopTitleBar";
 import {LocaleSwitcher} from "@/components/ui/locale-switcher";
 import {ThemeToggle} from "@/components/ui/theme-toggle";
+import {toAppHref} from "@/lib/app-href";
 import {isDesktopShell} from "@/lib/platform";
 import {cn} from "@/lib/utils";
+import {AppLink} from "@/components/app-link";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "plantify-dashboard-sidebar-collapsed";
 
@@ -98,8 +100,8 @@ export function DashboardShell({
             <div className="min-w-0">{topBarLead}</div>
 
             <div className="flex items-center gap-2">
-              <Link
-                href="/settings"
+              <AppLink
+                href={toAppHref("/settings")}
                 className={cn(
                   "inline-flex h-9 w-9 items-center justify-center rounded-xl border transition",
                   pathname === "/settings"
@@ -110,7 +112,7 @@ export function DashboardShell({
                 title="Settings"
               >
                 <Settings className="h-4 w-4" />
-              </Link>
+              </AppLink>
               <ThemeToggle />
               {showLocaleSwitcher ? <LocaleSwitcher /> : null}
             </div>
@@ -119,7 +121,6 @@ export function DashboardShell({
           <div className={cn("min-h-0 flex-1", contentClassName)}>{children}</div>
         </div>
       </main>
-
     </div>
   );
 }

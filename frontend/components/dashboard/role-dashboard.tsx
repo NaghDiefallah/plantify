@@ -21,6 +21,7 @@ import {Button} from "@/components/ui/button";
 import {DashboardShell} from "@/components/dashboard/dashboard-shell";
 import {FarmerDashboard} from "@/components/farmer/farmer-dashboard";
 import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
+import {toAppHref} from "@/lib/app-href";
 import {cn} from "@/lib/utils";
 import {isNativeMobilePlatform} from "@/lib/platform";
 
@@ -354,7 +355,7 @@ export function RoleDashboard() {
             // Use setTimeout to ensure redirect happens after render
             setTimeout(() => {
               if (!cancelled) {
-                window.location.replace("/login");
+                window.location.replace(toAppHref("/login"));
               }
             }, 0);
           }
@@ -388,7 +389,7 @@ export function RoleDashboard() {
             pushNotice("warn", "Session expired. Redirecting to login...");
             setTimeout(() => {
               if (!cancelled) {
-                window.location.replace("/login");
+                window.location.replace(toAppHref("/login"));
               }
             }, 0);
             return;

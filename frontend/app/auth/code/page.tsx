@@ -8,6 +8,7 @@ import {useRouter} from "next/navigation";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {getStoredAccessToken, redeemRoleByCode, storeUserRole} from "@/lib/api";
+import {toAppHref} from "@/lib/app-href";
 import type {UserRole} from "@/lib/types";
 
 function mapRoleElevationError(message: string, t: ReturnType<typeof useTranslations<"authCode">>) {
@@ -62,7 +63,7 @@ export default function AuthCodePage() {
         }
       });
       storeUserRole(profile.role);
-      router.push("/dashboard");
+      router.push(toAppHref("/dashboard"));
     } catch (err) {
       const message = err instanceof Error ? err.message : t("errors.applyFailed");
       setError(mapRoleElevationError(message, t));
