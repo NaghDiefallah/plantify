@@ -2,12 +2,14 @@
 
 import {History} from "lucide-react";
 import {useMemo} from "react";
+import {useTranslations} from "next-intl";
 
 import {DashboardShell} from "@/components/dashboard/dashboard-shell";
 import {type DashboardNavItem} from "@/components/dashboard/dashboard-sidebar";
 import {ScanHistoryContent} from "@/components/scan-history/scan-history-content";
 
 export default function ScanHistoryPage() {
+	const t = useTranslations("dashboard");
 	const navItems = useMemo<DashboardNavItem[]>(() => {
 		return [];
 	}, []);
@@ -22,8 +24,8 @@ export default function ScanHistoryPage() {
 						<History className="h-4 w-4" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-[var(--text-primary)]">History</p>
-						<p className="text-xs text-[var(--text-tertiary)]">All previous scans in one place</p>
+							<p className="text-sm font-semibold text-[var(--text-primary)]">{t("history.title")}</p>
+							<p className="text-xs text-[var(--text-tertiary)]">{t("history.subtitle")}</p>
 					</div>
 				</div>
 			}

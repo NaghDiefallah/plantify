@@ -9,6 +9,8 @@ import {useQuery} from "@tanstack/react-query";
 import {fetchHistory, getStoredAccessToken} from "@/lib/api";
 import type {ScanHistory} from "@/lib/types";
 import {cn} from "@/lib/utils";
+import {AppLink} from "@/components/app-link";
+import {hasHealthyLabel, parseTreatmentSections, summarizeTreatment} from "@/lib/treatment-guidance";
 
 type NoticeKind = "error" | "success" | "info";
 
@@ -39,6 +41,15 @@ function HistoryImage({row}: {row: ScanHistory}) {
       <ImageIcon className="h-4 w-4" />
     </div>
   );
+}
+
+function getPriorityScore(row: ScanHistory): number {
+  const healthy = hasHealthyLabel(row.disease || row.disease_type);
+  if (healthy) {
+    return 1;
+  }
+
+  return row.confidence_score >= 0.75 ? 3 : 2;
 }
 
 export function ScanHistoryContent() {
@@ -85,7 +96,14 @@ export function ScanHistoryContent() {
 
   const filteredRows = useMemo(() => {
     const rows: ScanHistory[] = historyQuery.data ?? [];
-    const sortedRows = [...rows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const sortedRows = [...rows].sort((left, right) => {
+      const priorityDifference = getPriorityScore(right) - getPriorityScore(left);
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+    });
     const now = Date.now();
     const timeThreshold =
       timeFilter === "24h"
@@ -116,6 +134,24 @@ export function ScanHistoryContent() {
       return matchesQuery && matchesTime && matchesDomain && matchesStatus && matchesConfidence && matchesStart && matchesEnd;
     });
   }, [domainFilter, endDate, historyQuery.data, minConfidence, query, startDate, statusFilter, timeFilter]);
+
+  if (!token) {
+    return (
+      <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-6 md:p-8">
+        <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
+          <AlertCircle className="h-8 w-8 text-[var(--text-tertiary)]" />
+          <h3 className="mt-4 text-lg font-semibold text-[var(--text-primary)]">{t("history.signInTitle")}</h3>
+          <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">{t("history.signInBody")}</p>
+          <AppLink
+            href="/login"
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold transition-opacity hover:opacity-90 [background:var(--accent)] [color:var(--accent-foreground)]"
+          >
+            {t("history.signInCta")}
+          </AppLink>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
@@ -162,25 +198,25 @@ export function ScanHistoryContent() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("history.searchPlaceholder")}
-                className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+                className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
               />
             </label>
             <button
               type="button"
               onClick={() => setAdvancedOpen((current) => !current)}
-              className="h-10 rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--text-primary)] hover:border-[#22c55e]/50"
+              className="h-10 rounded-lg border border-[var(--card-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--text-primary)] hover:border-[var(--ring)]/35"
             >
-              {advancedOpen ? "Hide filters" : "Advanced search"}
+              {advancedOpen ? t("history.hideFilters") : t("history.advancedSearch")}
             </button>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {[
-              {value: "all", label: "All time"},
-              {value: "24h", label: "24h"},
-              {value: "7d", label: "7d"},
-              {value: "30d", label: "30d"},
-              {value: "90d", label: "90d"}
+              {value: "all", label: t("history.timeAll")},
+              {value: "24h", label: t("history.time24h")},
+              {value: "7d", label: t("history.time7d")},
+              {value: "30d", label: t("history.time30d")},
+              {value: "90d", label: t("history.time90d")}
             ].map((option) => (
               <button
                 key={option.value}
@@ -189,8 +225,8 @@ export function ScanHistoryContent() {
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition",
                   timeFilter === option.value
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)]"
-                    : "border-[var(--card-border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[#22c55e]/40"
+                    ? "border-[var(--ring)]/30 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
+                    : "border-[var(--card-border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--ring)]/30"
                 )}
               >
                 {option.label}
@@ -203,13 +239,13 @@ export function ScanHistoryContent() {
       {advancedOpen ? (
         <div className="mb-4 grid gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--bg-primary)] p-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Domain</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("history.filterDomain")}</span>
             <select
               value={domainFilter}
               onChange={(event) => setDomainFilter(event.target.value)}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
             >
-              <option value="all">All domains</option>
+              <option value="all">{t("history.allDomains")}</option>
               {domains.map((domain) => (
                 <option key={domain} value={domain}>{domain}</option>
               ))}
@@ -217,56 +253,58 @@ export function ScanHistoryContent() {
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Status</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("history.filterStatus")}</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
             >
-              <option value="all">All outcomes</option>
-              <option value="healthy">Healthy only</option>
-              <option value="attention">Needs attention</option>
+              <option value="all">{t("history.allOutcomes")}</option>
+              <option value="healthy">{t("history.statusHealthyOnly")}</option>
+              <option value="attention">{t("history.statusNeedsAttention")}</option>
             </select>
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Min confidence</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("history.filterMinConfidence")}</span>
             <select
               value={minConfidence}
               onChange={(event) => setMinConfidence(event.target.value)}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
             >
-              <option value="0">Any confidence</option>
-              <option value="50">50%+</option>
-              <option value="70">70%+</option>
-              <option value="85">85%+</option>
+              <option value="0">{t("history.confidenceAny")}</option>
+              <option value="50">{t("history.confidence50")}</option>
+              <option value="70">{t("history.confidence70")}</option>
+              <option value="85">{t("history.confidence85")}</option>
             </select>
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Start date</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("history.filterStartDate")}</span>
             <input
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
             />
           </label>
 
           <label className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">End date</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("history.filterEndDate")}</span>
             <input
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[#22c55e]"
+              className="h-10 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
             />
           </label>
         </div>
       ) : null}
 
       <div className="mb-4 flex items-center justify-between gap-3 text-xs text-[var(--text-tertiary)]">
-        <span>{filteredRows.length} result{filteredRows.length === 1 ? "" : "s"}</span>
+        <span>
+          {filteredRows.length} {filteredRows.length === 1 ? t("history.resultSingle") : t("history.resultPlural")}
+        </span>
         {(query || domainFilter !== "all" || statusFilter !== "all" || minConfidence !== "0" || startDate || endDate || timeFilter !== "all") ? (
           <button
             type="button"
@@ -279,9 +317,9 @@ export function ScanHistoryContent() {
               setStartDate("");
               setEndDate("");
             }}
-            className="font-semibold text-[var(--text-primary)] hover:text-[#22c55e]"
+            className="font-semibold text-[var(--text-primary)] hover:text-[var(--text-secondary)]"
           >
-            Reset filters
+            {t("history.resetFilters")}
           </button>
         ) : null}
       </div>
@@ -306,16 +344,43 @@ export function ScanHistoryContent() {
                   <span
                     className={cn(
                       "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                      (row.disease || row.disease_type).toLowerCase().includes("healthy")
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                      hasHealthyLabel(row.disease || row.disease_type)
+                        ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]"
                         : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
                     )}
                   >
                     {row.disease || row.disease_type}
                   </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                      hasHealthyLabel(row.disease || row.disease_type)
+                        ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]"
+                        : row.confidence_score >= 0.75
+                          ? "bg-red-500/15 text-red-700 dark:text-red-300"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    )}
+                  >
+                    {hasHealthyLabel(row.disease || row.disease_type)
+                      ? t("history.priorityHealthy")
+                      : row.confidence_score >= 0.75
+                        ? t("history.priorityAttentionHigh")
+                        : t("history.priorityAttention")}
+                  </span>
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-tertiary)]">{new Date(row.created_at).toLocaleString()}</p>
-                <p className="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">{row.recommendation}</p>
+                <div className="mt-2 grid gap-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("result.immediate")}</p>
+                    <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{summarizeTreatment(row.recommendation)}</p>
+                  </div>
+                  {parseTreatmentSections(row.recommendation).next ? (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("result.next")}</p>
+                      <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{parseTreatmentSections(row.recommendation).next}</p>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">{t("result.metrics.modelConfidence")}</p>

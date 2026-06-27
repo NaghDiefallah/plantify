@@ -55,7 +55,7 @@ export default function RegisterPage() {
   return (
     <main className="relative min-h-[calc(100vh-90px)] overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute right-[-8rem] top-8 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute right-[-8rem] top-8 h-72 w-72 rounded-full bg-zinc-300/30 blur-3xl dark:bg-zinc-700/20" />
         <div className="absolute bottom-0 left-[-8rem] h-80 w-80 rounded-full bg-zinc-500/10 blur-3xl" />
       </div>
 
@@ -102,7 +102,7 @@ export default function RegisterPage() {
               />
               <p className="-mt-1 text-xs text-[var(--text-tertiary)]">{t("register.passwordRule")}</p>
 
-              <Button type="submit" className="mt-1 h-11 w-full gap-2 bg-[#22c55e] text-zinc-50 hover:bg-[#16a34a] active:scale-[0.98]" disabled={loading}>
+              <Button type="submit" className="mt-1 h-11 w-full gap-2 [background:var(--accent)] [color:var(--accent-foreground)]" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -124,7 +124,7 @@ export default function RegisterPage() {
             </form>
 
             <p className="mt-5 text-sm text-[var(--text-secondary)]">
-              {t("register.switchPrompt")} <Link href={toAppHref("/login")} className="font-semibold text-[#22c55e] hover:underline">{t("register.switchCta")}</Link>
+              {t("register.switchPrompt")} <Link href={toAppHref("/login")} className="font-semibold text-[var(--text-primary)] hover:underline">{t("register.switchCta")}</Link>
             </p>
           </Card>
         </motion.div>

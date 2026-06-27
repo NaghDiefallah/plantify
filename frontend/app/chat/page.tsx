@@ -17,14 +17,14 @@ export default function ChatPage() {
 			navItems={navItems}
 			activeSection="chat"
 			topBarLead={
-				<div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+				<div className="inline-flex items-center gap-2 rounded-full border border-[var(--ring)]/25 bg-[var(--bg-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
 					<Sparkles className="h-3.5 w-3.5" />
 					Advisor Live
 				</div>
 			}
 			contentClassName="overflow-hidden"
 		>
-			<section className="min-h-0 flex-1 overflow-hidden rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+			<section className="min-h-0 flex-1 overflow-hidden rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--shadow-md)]">
 				<ChatInterface />
 			</section>
 		</DashboardShell>

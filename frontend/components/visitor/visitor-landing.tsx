@@ -165,21 +165,21 @@ export function VisitorLanding() {
   // ─────────────────────────────────────────────────────────────────
 
   return (
-    <main className="relative mx-auto max-w-7xl px-6 pb-14 pt-16 md:px-8 md:pt-20">
+    <main className="relative mx-auto max-w-7xl px-6 pb-14 pt-14 md:px-8 md:pt-16">
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <motion.div
-          className="absolute left-[-12rem] top-0 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl"
+          className="absolute left-[-12rem] top-0 h-80 w-80 rounded-full bg-zinc-300/30 blur-3xl dark:bg-zinc-700/20"
           animate={{y: [0, -18, 0], x: [0, 10, 0]}}
           transition={{duration: 8, repeat: Infinity, ease: "easeInOut"}}
         />
         <motion.div
-          className="absolute bottom-16 right-[-10rem] h-72 w-72 rounded-full bg-zinc-500/10 blur-3xl"
+          className="absolute bottom-16 right-[-10rem] h-72 w-72 rounded-full bg-zinc-400/20 blur-3xl dark:bg-zinc-600/20"
           animate={{y: [0, 16, 0], x: [0, -12, 0]}}
           transition={{duration: 9, repeat: Infinity, ease: "easeInOut"}}
         />
       </div>
 
-      <section className="mx-auto max-w-3xl text-center">
+      <section className="mx-auto max-w-4xl text-center">
         <motion.p
           variants={fadeUp}
           initial="hidden"
@@ -194,7 +194,7 @@ export function VisitorLanding() {
           initial="hidden"
           animate="show"
           transition={{duration: 0.45, delay: 0.05}}
-          className="text-balance text-4xl font-semibold leading-[1.08] text-[var(--text-primary)] md:text-6xl"
+          className="text-balance text-4xl font-semibold leading-[1.06] text-[var(--text-primary)] md:text-6xl"
         >
             {t("title")}
           </motion.h1>
@@ -203,7 +203,7 @@ export function VisitorLanding() {
           initial="hidden"
           animate="show"
           transition={{duration: 0.45, delay: 0.12}}
-          className="mx-auto mt-6 max-w-2xl text-base tracking-[0.02em] text-[var(--text-secondary)] md:text-lg"
+          className="mx-auto mt-6 max-w-2xl text-base tracking-[0.01em] text-[var(--text-secondary)] md:text-lg"
         >
             {t("subtitle")}
           </motion.p>
@@ -221,7 +221,7 @@ export function VisitorLanding() {
             >
               <AppLink
               href={toAppHref("/dashboard")}
-              className="inline-flex h-11 items-center rounded-lg bg-[#22c55e] px-5 text-sm font-semibold text-zinc-50 transition-transform duration-150 hover:bg-[#16a34a] hover:text-zinc-50 active:scale-[0.98]"
+              className="inline-flex h-11 items-center rounded-lg px-5 text-sm font-semibold transition-opacity hover:opacity-90 [background:var(--accent)] [color:var(--accent-foreground)]"
             >
               {t("ctaPrimary")}
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -230,7 +230,7 @@ export function VisitorLanding() {
           </motion.div>
       </section>
 
-      <section id="mission" className="mt-20">
+      <section id="mission" className="mt-20 rounded-3xl border border-[var(--card-border)] bg-[color:var(--card-bg)] p-6 shadow-[var(--shadow-sm)] md:p-8">
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("missionEyebrow")}</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">
@@ -247,7 +247,7 @@ export function VisitorLanding() {
               viewport={{once: true, amount: 0.25}}
               transition={{duration: 0.35, delay: index * 0.06}}
               whileHover={{y: -4, scale: 1.01}}
-              className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+              className="rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/55 p-5"
             >
               <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">{point.title}</h3>
               <p className="mt-3 text-sm text-[var(--text-secondary)]">{point.body}</p>
@@ -267,7 +267,7 @@ export function VisitorLanding() {
             {[...TESTIMONIALS, ...TESTIMONIALS].map((item, index) => (
               <article
                 key={`${item.author}-${index}`}
-                className="w-[16.5rem] sm:w-[20rem] rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+                className="w-[16.5rem] sm:w-[20rem] rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--shadow-sm)]"
               >
                 <p className="text-sm leading-relaxed text-[var(--text-secondary)]">&quot;{item.quote}&quot;</p>
                 <div className="mt-5">
@@ -280,7 +280,7 @@ export function VisitorLanding() {
         </div>
       </section>
 
-      <section id="team" className="mt-20">
+      <section id="team" className="mt-20 rounded-3xl border border-[var(--card-border)] bg-[color:var(--card-bg)] p-6 shadow-[var(--shadow-sm)] md:p-8">
         <div className="flex items-start justify-between mb-7">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{t("teamEyebrow")}</p>
@@ -290,14 +290,14 @@ export function VisitorLanding() {
             <button
               onClick={() => recalcCarousel(carousel.idx - 1)}
               aria-label="Previous team members"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--card-bg)]"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => recalcCarousel(carousel.idx + 1)}
               aria-label="Next team members"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--card-bg)]"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -325,7 +325,7 @@ export function VisitorLanding() {
             {teamTrack.map((member, index) => (
               <article
                 key={`${member.name}-${index}`}
-                className="flex-shrink-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5"
+                className="flex-shrink-0 rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/55 p-5"
                 style={{width: `calc((100% - ${(carousel.visible - 1) * CAROUSEL_GAP}px) / ${carousel.visible})`}}
               >
                 <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)]">

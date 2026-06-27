@@ -116,7 +116,9 @@
     "title": "افحص، حلّل، ثم نفّذ",
     "tabs": {
       "scan": "فحص",
-      "result": "النتيجة"
+      "result": "النتيجة",
+      "analyze": "تحليل",
+      "act": "تنفيذ"
     },
     "scanIntake": {
       "title": "إدخال الفحص",
@@ -124,8 +126,11 @@
       "statusReady": "الصورة جاهزة",
       "statusWaiting": "بانتظار الرفع",
       "dropzoneTitle": "اسحب وأسقط صورة ورقة نبات",
+      "fileTypes": "JPG أو PNG أو WEBP",
+      "readyNotice": "الصورة جاهزة للفحص.",
       "cta": "ابدأ الفحص بالذكاء الاصطناعي",
-      "scanning": "جارٍ الفحص..."
+      "scanning": "جارٍ الفحص...",
+      "reset": "ابدأ من جديد"
     },
     "result": {
       "title": "النتيجة والعلاج",
@@ -140,6 +145,7 @@
       "next": "الأيام السبعة القادمة",
       "monitor": "راقب",
       "empty": "شغّل فحصاً لعرض تحليلات الثقة وتوجيهات العلاج.",
+      "treatmentEmpty": "ستظهر إرشادات العلاج هنا بعد اكتمال التحليل.",
       "metrics": {
         "modelConfidence": "ثقة النموذج",
         "diseaseLikelihood": "احتمالية المرض",
@@ -148,9 +154,39 @@
     },
     "history": {
       "title": "سجل الفحوصات",
+      "subtitle": "جميع الفحوصات السابقة في مكان واحد",
       "searchPlaceholder": "ابحث حسب المرض أو النطاق",
+      "advancedSearch": "بحث متقدم",
+      "hideFilters": "إخفاء الفلاتر",
+      "timeAll": "كل الوقت",
+      "time24h": "24 ساعة",
+      "time7d": "7 أيام",
+      "time30d": "30 يوماً",
+      "time90d": "90 يوماً",
+      "filterDomain": "النطاق",
+      "filterStatus": "الحالة",
+      "filterMinConfidence": "أدنى ثقة",
+      "filterStartDate": "تاريخ البدء",
+      "filterEndDate": "تاريخ الانتهاء",
+      "allDomains": "كل النطاقات",
+      "allOutcomes": "كل النتائج",
+      "statusHealthyOnly": "سليم فقط",
+      "statusNeedsAttention": "يحتاج متابعة",
+      "confidenceAny": "أي ثقة",
+      "confidence50": "%50+",
+      "confidence70": "%70+",
+      "confidence85": "%85+",
+      "resultSingle": "نتيجة",
+      "resultPlural": "نتائج",
+      "resetFilters": "إعادة ضبط الفلاتر",
       "loading": "جارٍ تحميل السجل...",
-      "empty": "لا توجد فحوصات مطابقة."
+      "empty": "لا توجد فحوصات مطابقة.",
+      "signInTitle": "سجّل الدخول لعرض سجل الفحوصات",
+      "signInBody": "ترتبط فحوصاتك السابقة بحسابك. سجّل الدخول لمراجعة النتائج السابقة ومستويات الثقة وتوجيهات العلاج.",
+      "signInCta": "الانتقال إلى تسجيل الدخول",
+      "priorityHealthy": "مستقر",
+      "priorityAttention": "يحتاج متابعة",
+      "priorityAttentionHigh": "راجع الآن"
     },
     "snapshot": {
       "title": "ملخص العمليات",

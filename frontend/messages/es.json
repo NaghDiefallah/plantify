@@ -116,7 +116,9 @@
     "title": "Escanear, analizar y actuar",
     "tabs": {
       "scan": "Escaneo",
-      "result": "Resultado"
+      "result": "Resultado",
+      "analyze": "Analizar",
+      "act": "Actuar"
     },
     "scanIntake": {
       "title": "Entrada de escaneo",
@@ -124,8 +126,11 @@
       "statusReady": "Imagen lista",
       "statusWaiting": "Esperando carga",
       "dropzoneTitle": "Arrastra y suelta una imagen de hoja",
+      "fileTypes": "JPG, PNG o WEBP",
+      "readyNotice": "Imagen lista para escanear.",
       "cta": "Iniciar escaneo IA",
-      "scanning": "Escaneando..."
+      "scanning": "Escaneando...",
+      "reset": "Empezar de nuevo"
     },
     "result": {
       "title": "Resultado y tratamiento",
@@ -140,6 +145,7 @@
       "next": "Próximos 7 días",
       "monitor": "Monitorear",
       "empty": "Ejecuta un escaneo para ver análisis de confianza y guía de tratamiento.",
+      "treatmentEmpty": "La guía de tratamiento aparecerá aquí cuando finalice el análisis.",
       "metrics": {
         "modelConfidence": "Confianza del modelo",
         "diseaseLikelihood": "Probabilidad de enfermedad",
@@ -148,9 +154,39 @@
     },
     "history": {
       "title": "Historial de escaneos",
+      "subtitle": "Todos los escaneos anteriores en un solo lugar",
       "searchPlaceholder": "Buscar por enfermedad o dominio",
+      "advancedSearch": "Búsqueda avanzada",
+      "hideFilters": "Ocultar filtros",
+      "timeAll": "Todo el tiempo",
+      "time24h": "24 h",
+      "time7d": "7 d",
+      "time30d": "30 d",
+      "time90d": "90 d",
+      "filterDomain": "Dominio",
+      "filterStatus": "Estado",
+      "filterMinConfidence": "Confianza mínima",
+      "filterStartDate": "Fecha de inicio",
+      "filterEndDate": "Fecha de fin",
+      "allDomains": "Todos los dominios",
+      "allOutcomes": "Todos los resultados",
+      "statusHealthyOnly": "Solo saludables",
+      "statusNeedsAttention": "Requiere atención",
+      "confidenceAny": "Cualquier confianza",
+      "confidence50": "50%+",
+      "confidence70": "70%+",
+      "confidence85": "85%+",
+      "resultSingle": "resultado",
+      "resultPlural": "resultados",
+      "resetFilters": "Restablecer filtros",
       "loading": "Cargando historial...",
-      "empty": "No se encontraron escaneos coincidentes."
+      "empty": "No se encontraron escaneos coincidentes.",
+      "signInTitle": "Inicia sesión para ver tu historial de escaneos",
+      "signInBody": "Tus escaneos anteriores están vinculados a tu cuenta. Inicia sesión para revisar detecciones previas, niveles de confianza y recomendaciones de tratamiento.",
+      "signInCta": "Ir a iniciar sesión",
+      "priorityHealthy": "Estable",
+      "priorityAttention": "Requiere atención",
+      "priorityAttentionHigh": "Revisar ahora"
     },
     "snapshot": {
       "title": "Resumen operativo",

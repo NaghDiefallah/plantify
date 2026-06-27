@@ -116,7 +116,9 @@
     "title": "स्कैन करें, विश्लेषण करें और कार्रवाई करें",
     "tabs": {
       "scan": "स्कैन",
-      "result": "परिणाम"
+      "result": "परिणाम",
+      "analyze": "विश्लेषण",
+      "act": "कार्रवाई"
     },
     "scanIntake": {
       "title": "स्कैन इनटेक",
@@ -124,8 +126,11 @@
       "statusReady": "इमेज तैयार",
       "statusWaiting": "अपलोड की प्रतीक्षा",
       "dropzoneTitle": "पत्ती की तस्वीर ड्रैग और ड्रॉप करें",
+      "fileTypes": "JPG, PNG या WEBP",
+      "readyNotice": "इमेज स्कैन के लिए तैयार है।",
       "cta": "एआई स्कैन शुरू करें",
-      "scanning": "स्कैन हो रहा है..."
+      "scanning": "स्कैन हो रहा है...",
+      "reset": "फिर से शुरू करें"
     },
     "result": {
       "title": "परिणाम और उपचार",
@@ -140,6 +145,7 @@
       "next": "अगले 7 दिन",
       "monitor": "निगरानी करें",
       "empty": "विश्वसनीयता विश्लेषण और उपचार मार्गदर्शन देखने के लिए स्कैन चलाएँ।",
+      "treatmentEmpty": "विश्लेषण पूरा होने के बाद उपचार मार्गदर्शन यहाँ दिखाई देगा।",
       "metrics": {
         "modelConfidence": "मॉडल विश्वसनीयता",
         "diseaseLikelihood": "रोग संभावना",
@@ -148,9 +154,39 @@
     },
     "history": {
       "title": "स्कैन इतिहास",
+      "subtitle": "सभी पिछले स्कैन एक ही स्थान पर",
       "searchPlaceholder": "रोग या डोमेन से खोजें",
+      "advancedSearch": "उन्नत खोज",
+      "hideFilters": "फ़िल्टर छिपाएँ",
+      "timeAll": "सभी समय",
+      "time24h": "24 घंटे",
+      "time7d": "7 दिन",
+      "time30d": "30 दिन",
+      "time90d": "90 दिन",
+      "filterDomain": "डोमेन",
+      "filterStatus": "स्थिति",
+      "filterMinConfidence": "न्यूनतम विश्वसनीयता",
+      "filterStartDate": "आरंभ तिथि",
+      "filterEndDate": "समाप्ति तिथि",
+      "allDomains": "सभी डोमेन",
+      "allOutcomes": "सभी परिणाम",
+      "statusHealthyOnly": "केवल स्वस्थ",
+      "statusNeedsAttention": "ध्यान आवश्यक",
+      "confidenceAny": "कोई भी विश्वसनीयता",
+      "confidence50": "50%+",
+      "confidence70": "70%+",
+      "confidence85": "85%+",
+      "resultSingle": "परिणाम",
+      "resultPlural": "परिणाम",
+      "resetFilters": "फ़िल्टर रीसेट करें",
       "loading": "इतिहास लोड हो रहा है...",
-      "empty": "कोई मेल खाते स्कैन नहीं मिले।"
+      "empty": "कोई मेल खाते स्कैन नहीं मिले।",
+      "signInTitle": "अपना स्कैन इतिहास देखने के लिए साइन इन करें",
+      "signInBody": "आपके पिछले स्कैन आपके खाते से जुड़े हैं। पिछले निदान, विश्वसनीयता स्तर और उपचार मार्गदर्शन देखने के लिए साइन इन करें।",
+      "signInCta": "साइन इन पर जाएँ",
+      "priorityHealthy": "स्थिर",
+      "priorityAttention": "ध्यान आवश्यक",
+      "priorityAttentionHigh": "अभी समीक्षा करें"
     },
     "snapshot": {
       "title": "ऑपरेशंस स्नैपशॉट",

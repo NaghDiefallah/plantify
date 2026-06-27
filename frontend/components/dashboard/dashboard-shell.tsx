@@ -93,7 +93,7 @@ export function DashboardShell({
 
           <header
             className={cn(
-              "mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-[1.75rem] border border-[var(--card-border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,245,0.9))] px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(39,39,42,0.92))]",
+              "mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 shadow-[var(--shadow-sm)]",
               topBarClassName
             )}
           >
@@ -105,7 +105,7 @@ export function DashboardShell({
                 className={cn(
                   "inline-flex h-9 w-9 items-center justify-center rounded-xl border transition",
                   pathname === "/settings"
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)]"
+                    ? "border-[var(--ring)]/30 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
                     : "border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:opacity-90"
                 )}
                 aria-label="Open settings"

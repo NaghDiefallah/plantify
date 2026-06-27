@@ -171,7 +171,7 @@ export function ChatInterface() {
           {messages.length === 0 && (
             <div className="flex min-h-full items-center justify-center py-8 text-center">
               <div className="w-full max-w-2xl">
-                <div className="mx-auto mb-5 h-16 w-16 rounded-full border border-emerald-500/15 bg-emerald-500/10 p-4 text-emerald-600 dark:text-emerald-300">
+                <div className="mx-auto mb-5 h-16 w-16 rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] p-4 text-[var(--text-primary)]">
                   <div className="grid h-full w-full grid-cols-2 gap-1.5">
                     <span className="rounded-full bg-current/80" />
                     <span className="rounded-full bg-current/55" />
@@ -186,7 +186,7 @@ export function ChatInterface() {
                       key={prompt}
                       type="button"
                       onClick={() => applyStarterPrompt(prompt)}
-                      className="rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground transition hover:border-emerald-500/35 hover:text-foreground"
+                      className="rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground transition hover:border-[var(--ring)]/35 hover:text-foreground"
                     >
                       {prompt}
                     </button>
@@ -254,7 +254,7 @@ export function ChatInterface() {
               onKeyDown={handleKeyDown}
               placeholder={t("inputPlaceholder")}
               disabled={isLoading}
-              className="flex-1 resize-none rounded-xl border border-border bg-black/30 px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 resize-none rounded-xl border border-border bg-[var(--card-bg)] px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--ring)]/50 disabled:cursor-not-allowed disabled:opacity-50"
               rows={1}
             />
             <Button

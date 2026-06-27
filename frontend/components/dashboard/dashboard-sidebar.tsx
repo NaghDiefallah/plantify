@@ -2,6 +2,8 @@
 
 import {
   Activity,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   FlaskConical,
   History,
@@ -10,6 +12,7 @@ import {
   LogOut,
   Menu,
   MessageSquareHeart,
+  Scale,
   Settings2,
   ShieldCheck,
   Users,
@@ -30,6 +33,22 @@ export type DashboardNavItem = {
   icon: "activity" | "clipboard" | "flask" | "history" | "leaf" | "message" | "shield" | "users";
   href?: string;
 };
+
+type SidebarEntry = {
+  id: string;
+  label: string;
+  icon: ReturnType<typeof iconForNavItem>;
+  href?: string;
+  sectionId?: string;
+};
+
+const QUICK_LINKS: SidebarEntry[] = [
+  {id: "dashboard", label: "Home", href: "/dashboard", icon: Home},
+  {id: "chat", label: "Chat", href: "/chat", icon: MessageSquareHeart},
+  {id: "community", label: "Community", href: "/community", icon: Users},
+  {id: "history", label: "History", href: "/scan-history", icon: History},
+  {id: "settings", label: "Settings", href: "/settings", icon: Settings2}
+];
 
 function iconForNavItem(icon: DashboardNavItem["icon"]) {
   switch (icon) {
@@ -54,75 +73,61 @@ function iconForNavItem(icon: DashboardNavItem["icon"]) {
   }
 }
 
-function NavLink({
-  collapsed,
-  active,
-  href,
-  label,
-  icon: Icon
-}: {
-  collapsed: boolean;
-  active: boolean;
-  href: string;
-  label: string;
-  icon: ReturnType<typeof iconForNavItem>;
-}) {
-  return (
-    <AppLink
-      href={href}
-      className={cn(
-        "group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all",
-        active
-          ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,197,94,0.08)]"
-          : "border-transparent bg-[var(--bg-secondary)]/55 text-[var(--text-secondary)] hover:border-[var(--card-border)] hover:bg-[var(--bg-secondary)]",
-        collapsed && "h-11 w-11 justify-center rounded-full px-0 py-0"
-      )}
-      aria-current={active ? "location" : undefined}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
-      {collapsed ? (
-        <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
-          {label}
-        </span>
-      ) : null}
-    </AppLink>
-  );
+function isEntryActive(entry: SidebarEntry, pathname: string, activeSection: string) {
+  if (entry.href) {
+    return pathname === entry.href || pathname.startsWith(`${entry.href}/`) || pathname.startsWith(`${entry.href}#`);
+  }
+
+  if (entry.sectionId) {
+    return activeSection === entry.sectionId;
+  }
+
+  return false;
 }
 
-function NavButton({
+function SidebarNavItem({
   collapsed,
   active,
-  onClick,
-  label,
-  icon: Icon
+  entry,
+  onSelect
 }: {
   collapsed: boolean;
   active: boolean;
-  onClick: () => void;
-  label: string;
-  icon: ReturnType<typeof iconForNavItem>;
+  entry: SidebarEntry;
+  onSelect: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all",
-        active
-          ? "border-emerald-500/30 bg-emerald-500/10 text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,197,94,0.08)]"
-          : "border-transparent bg-[var(--bg-secondary)]/55 text-[var(--text-secondary)] hover:border-[var(--card-border)] hover:bg-[var(--bg-secondary)]",
-        collapsed && "h-11 w-11 justify-center rounded-full px-0 py-0"
-      )}
-      aria-current={active ? "location" : undefined}
-    >
+  const Icon = entry.icon;
+  const content = (
+    <>
       <Icon className="h-4 w-4 shrink-0" />
-      {collapsed ? null : <span className="truncate font-semibold">{label}</span>}
+      {collapsed ? null : <span className="truncate font-semibold">{entry.label}</span>}
       {collapsed ? (
         <span className="pointer-events-none absolute left-full top-1/2 z-[120] ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-lg group-hover:block rtl:left-auto rtl:right-full rtl:ml-0 rtl:mr-3">
-          {label}
+          {entry.label}
         </span>
       ) : null}
+    </>
+  );
+
+  const className = cn(
+    "group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all",
+    active
+      ? "border-[#22c55e]/35 bg-[#22c55e]/10 text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,197,94,0.18)]"
+      : "border-transparent bg-[var(--bg-secondary)]/55 text-[var(--text-secondary)] hover:border-[var(--card-border)] hover:bg-[var(--bg-secondary)]",
+    collapsed && "h-11 w-11 justify-center rounded-full px-0 py-0"
+  );
+
+  if (entry.href) {
+    return (
+      <AppLink href={entry.href} className={className} aria-current={active ? "location" : undefined} onClick={onSelect}>
+        {content}
+      </AppLink>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onSelect} className={className} aria-current={active ? "location" : undefined}>
+      {content}
     </button>
   );
 }
@@ -133,7 +138,8 @@ function SidePanelContent({
   activeSection,
   onToggleCollapsed,
   onNavigate,
-  pathname
+  pathname,
+  onCloseMobile
 }: {
   collapsed: boolean;
   navItems: DashboardNavItem[];
@@ -141,80 +147,95 @@ function SidePanelContent({
   onToggleCollapsed: () => void;
   onNavigate: (sectionId: string) => void;
   pathname: string;
+  onCloseMobile: () => void;
 }) {
-  const dashboardLabel = "Dashboard";
+  const dashboardLabel = "Plantify";
   const logoutLabel = "Logout";
-  const workflowItems = navItems.filter((item) => !["scan", "analyze", "act", "scan-history"].includes(item.id));
+  const workflowEntries: SidebarEntry[] = navItems
+    .filter((item) => !["scan", "analyze", "act", "scan-history"].includes(item.id))
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: iconForNavItem(item.icon),
+      href: item.href,
+      sectionId: item.href ? undefined : item.id
+    }));
 
-  const quickLinks = [
-    {id: "dashboard", label: "Home", href: "/dashboard", icon: Home},
-    {id: "chat", label: "Chat", href: "/chat", icon: MessageSquareHeart},
-    {id: "community", label: "Community", href: "/community", icon: Users},
-    {id: "history", label: "History", href: "/scan-history", icon: History},
-    {id: "settings", label: "Settings", href: "/settings", icon: Settings2}
-  ];
+  const handleSelect = (entry: SidebarEntry) => {
+    if (entry.sectionId) {
+      onNavigate(entry.sectionId);
+      return;
+    }
+
+    onCloseMobile();
+  };
 
   return (
     <div className={cn("flex h-full flex-col gap-4 p-4", collapsed && "items-center px-3")}>
-      <button
-        type="button"
-        onClick={onToggleCollapsed}
+      <div
         className={cn(
-          "w-full rounded-[1.4rem] border border-[var(--card-border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,245,0.92))] p-3 text-left shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition-all hover:border-[#22c55e]/40 dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(39,39,42,0.92))]",
-          collapsed && "flex h-12 w-12 items-center justify-center rounded-full p-0"
+          "w-full rounded-[1.5rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[var(--shadow-sm)]",
+          collapsed && "w-auto rounded-full p-2"
         )}
-        title={collapsed ? dashboardLabel : undefined}
       >
-        {collapsed ? (
-          <Menu className="h-5 w-5 text-[var(--text-primary)]" />
-        ) : (
-          <div className="flex items-center justify-between gap-3">
-            <div>
+        <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}> 
+          {collapsed ? null : (
+            <div className="flex items-center gap-3">
+              <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#22c55e] text-white">
+                <Scale className="h-4 w-4" />
+              </div>
+              <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workspace</p>
               <span className="mt-1 block text-base font-semibold text-[var(--text-primary)]">{dashboardLabel}</span>
+              </div>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-              <Menu className="h-4 w-4" />
-            </div>
+          )}
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] transition hover:opacity-90"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className={cn("w-full space-y-3", collapsed && "w-auto space-y-2")}> 
+        {workflowEntries.length > 0 ? (
+          <div className={cn("rounded-[1.3rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[var(--shadow-sm)]", collapsed && "border-none bg-transparent p-0 shadow-none")}>
+            {collapsed ? null : <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p>}
+            <ul className={cn("space-y-2", collapsed ? "flex flex-col items-center gap-2 space-y-0" : "mt-2")}>
+              {workflowEntries.map((entry) => (
+                <li key={entry.id} className="w-full">
+                  <SidebarNavItem
+                    collapsed={collapsed}
+                    active={isEntryActive(entry, pathname, activeSection)}
+                    entry={entry}
+                    onSelect={() => handleSelect(entry)}
+                  />
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
-      </button>
+        ) : null}
 
-      <div className={cn("w-full rounded-[1.6rem] border border-[var(--card-border)] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(246,248,247,0.92))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(145deg,rgba(24,24,27,0.95),rgba(39,39,42,0.88))]", collapsed && "w-auto border-none bg-transparent p-0 shadow-none")}>
-        {workflowItems.length > 0 && !collapsed ? <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Workflow</p> : null}
-        {workflowItems.length > 0 ? <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
-          {workflowItems.map((item) => {
-            const Icon = iconForNavItem(item.icon);
-            const isActive = item.href ? pathname === item.href || pathname.startsWith(`${item.href}#`) : activeSection === item.id;
-
-            return (
-              <li key={item.id} className="w-full">
-                {item.href ? (
-                  <NavLink collapsed={collapsed} active={isActive} href={item.href} label={item.label} icon={Icon} />
-                ) : (
-                  <NavButton collapsed={collapsed} active={isActive} onClick={() => onNavigate(item.id)} label={item.label} icon={Icon} />
-                )}
+        <div className={cn("rounded-[1.3rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-[var(--shadow-sm)]", collapsed && "border-none bg-transparent p-0 shadow-none")}>
+          {collapsed ? null : <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Navigate</p>}
+          <ul className={cn("space-y-2", collapsed ? "flex flex-col items-center gap-2 space-y-0" : "mt-2")}>
+            {QUICK_LINKS.map((entry) => (
+              <li key={entry.id} className="w-full">
+                <SidebarNavItem
+                  collapsed={collapsed}
+                  active={isEntryActive(entry, pathname, activeSection)}
+                  entry={entry}
+                  onSelect={() => handleSelect(entry)}
+                />
               </li>
-            );
-          })}
-        </ul> : null}
-
-        {collapsed ? null : (
-          <>
-            {workflowItems.length > 0 ? <div className="my-3 h-px bg-[var(--card-border)]/80" /> : null}
-            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Navigate</p>
-          </>
-        )}
-        <ul className={cn("mt-2 space-y-2", collapsed && "mt-0 flex flex-col items-center gap-2 space-y-0")}>
-          {quickLinks.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
-            return (
-              <li key={link.id} className="w-full">
-                <NavLink collapsed={collapsed} active={isActive} href={link.href} label={link.label} icon={link.icon} />
-              </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <div className="flex-1" />
@@ -226,6 +247,7 @@ function SidePanelContent({
           if (token) {
             await logoutCurrentSession();
           }
+          onCloseMobile();
           window.location.href = "/login";
         }}
         title={collapsed ? logoutLabel : undefined}
@@ -295,7 +317,7 @@ export function DashboardSidebar({
         <Button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="h-12 w-12 rounded-full bg-[var(--accent-primary)] p-3 text-white hover:opacity-90"
+          className="h-12 w-12 rounded-full p-3 hover:opacity-90 [background:var(--accent)] [color:var(--accent-foreground)]"
         >
           {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
@@ -337,6 +359,7 @@ export function DashboardSidebar({
             }}
             onNavigate={navigateToSection}
             pathname={pathname}
+            onCloseMobile={() => setIsOpen(false)}
           />
         </div>
       </aside>

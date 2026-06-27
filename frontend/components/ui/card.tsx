@@ -15,10 +15,10 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-card-border bg-card-bg transition-all duration-200",
+        "rounded-xl border border-card-border bg-card-bg transition-all duration-200 backdrop-blur-sm",
         glow && "shadow-lime dark:shadow-lime-md hover:shadow-lime-lg",
-        !glow && "shadow-sm dark:shadow-glass",
-        interactive && "cursor-pointer hover:shadow-md dark:hover:shadow-glass-sm hover:border-accent/50 active:scale-[0.98]",
+        !glow && "shadow-sm",
+        interactive && "cursor-pointer hover:shadow-md hover:border-[var(--ring)]/20 active:scale-[0.98]",
         className
       )}
       {...props}

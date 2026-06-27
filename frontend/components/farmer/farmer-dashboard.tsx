@@ -12,7 +12,7 @@ import {
   UploadCloud,
   X
 } from "lucide-react";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useReducer, useState} from "react";
 import Image from "next/image";
 import {useTranslations} from "next-intl";
 import {useDropzone} from "react-dropzone";
@@ -27,9 +27,17 @@ import {
   getStoredAccessToken
 } from "@/lib/api";
 import type {DetectionResult} from "@/lib/types";
+import {farmerScanReducer, initialFarmerScanState} from "@/components/farmer/farmer-scan-state";
+import {hasHealthyLabel, parseTreatmentSections} from "@/lib/treatment-guidance";
 
 function createPreview(file: File | null): string | null {
   return file ? URL.createObjectURL(file) : null;
+}
+
+function revokePreview(url: string | null): void {
+  if (url) {
+    URL.revokeObjectURL(url);
+  }
 }
 
 type NoticeKind = "error" | "success" | "info";
@@ -39,34 +47,6 @@ type Notice = {
   kind: NoticeKind;
   message: string;
 };
-
-function parseTreatmentSections(text: string | null | undefined) {
-  const fallback = {
-    immediate: "",
-    next: "",
-    monitor: ""
-  };
-
-  if (!text) {
-    return fallback;
-  }
-
-  const sections = {...fallback};
-  for (const line of text.split(/\n+/g).map((part) => part.trim()).filter(Boolean)) {
-    const [label, ...rest] = line.split(":");
-    const body = rest.join(":").trim();
-    const normalized = label.toLowerCase();
-    if (normalized.startsWith("immediate")) {
-      sections.immediate = body;
-    } else if (normalized.startsWith("next")) {
-      sections.next = body;
-    } else if (normalized.startsWith("monitor")) {
-      sections.monitor = body;
-    }
-  }
-
-  return sections;
-}
 
 function ConfidenceBar({label, value}: {label: string; value: number}) {
   const tone = value >= 75 ? "bg-[#22c55e]" : value >= 45 ? "bg-[#f59e0b]" : "bg-[#ef4444]";
@@ -94,9 +74,13 @@ export function FarmerDashboard() {
   const queryClient = useQueryClient();
   const token = getStoredAccessToken();
 
-  const [original, setOriginal] = useState<File | null>(null);
-  const [result, setResult] = useState<DetectionResult | null>(null);
+  const [{original, result}, dispatch] = useReducer(farmerScanReducer, initialFarmerScanState);
   const [notices, setNotices] = useState<Notice[]>([]);
+
+  const resetScanFlow = () => {
+    dispatch({type: "reset"});
+    detectMutation.reset();
+  };
 
   const pushNotice = (kind: NoticeKind, message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 10000);
@@ -107,6 +91,8 @@ export function FarmerDashboard() {
   };
 
   const previewUrl = useMemo(() => createPreview(original), [original]);
+
+  useEffect(() => () => revokePreview(previewUrl), [previewUrl]);
 
   const statsQuery = useQuery({
     queryKey: ["stats"],
@@ -131,7 +117,7 @@ export function FarmerDashboard() {
       });
     },
     onSuccess: (payload) => {
-      setResult(payload);
+      dispatch({type: "set-result", result: payload});
       pushNotice("success", `${payload.plant_name}: ${payload.disease}`);
       void queryClient.invalidateQueries({queryKey: ["history"]});
       void queryClient.invalidateQueries({queryKey: ["stats"]});
@@ -157,16 +143,18 @@ export function FarmerDashboard() {
       "image/webp": [".webp"]
     },
     onDrop: (accepted) => {
-      setOriginal(accepted[0] ?? null);
-      if (accepted[0]) {
-        pushNotice("info", "Image ready for scanning.");
+      const nextOriginal = accepted[0] ?? null;
+      dispatch({type: "select-image", file: nextOriginal});
+      detectMutation.reset();
+      if (nextOriginal) {
+        pushNotice("info", t("scanIntake.readyNotice"));
       }
     }
   });
 
   const confidence = (result?.confidence_score ?? 0) * 100;
   const treatment = parseTreatmentSections(result?.treatment_recommendations);
-  const isHealthy = result?.disease_type.toLowerCase().includes("healthy") ?? false;
+  const isHealthy = hasHealthyLabel(result?.disease_type);
 
   const beforeSrc = result?.before_image_b64
     ? `data:image/jpeg;base64,${result.before_image_b64}`
@@ -229,7 +217,7 @@ export function FarmerDashboard() {
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <section id="scan" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Scan</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("tabs.scan")}</h3>
             <span className="text-xs text-[var(--text-tertiary)]">
               {detectMutation.isPending ? t("scanIntake.statusProcessing") : original ? t("scanIntake.statusReady") : t("scanIntake.statusWaiting")}
             </span>
@@ -263,34 +251,45 @@ export function FarmerDashboard() {
               <div className="text-center">
                 <UploadCloud className="mx-auto h-8 w-8 text-[var(--text-tertiary)]" />
                 <p className="mt-3 text-sm font-medium text-[var(--text-primary)]">{t("scanIntake.dropzoneTitle")}</p>
-                <p className="mt-1 text-xs text-[var(--text-tertiary)]">JPG, PNG, or WEBP</p>
+                <p className="mt-1 text-xs text-[var(--text-tertiary)]">{t("scanIntake.fileTypes")}</p>
               </div>
             )}
           </div>
 
-          <Button
-            type="button"
-            onClick={() => detectMutation.mutate()}
-            disabled={detectMutation.isPending || !original}
-            className="mt-4 h-11 w-full bg-[#22c55e] text-zinc-50 hover:bg-[#16a34a] active:scale-[0.98]"
-          >
-            {detectMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("scanIntake.scanning")}
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                {t("scanIntake.cta")}
-              </>
-            )}
-          </Button>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              onClick={() => detectMutation.mutate()}
+              disabled={detectMutation.isPending || !original}
+              className="h-11 flex-1 bg-[#22c55e] text-zinc-50 hover:bg-[#16a34a] active:scale-[0.98]"
+            >
+              {detectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("scanIntake.scanning")}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  {t("scanIntake.cta")}
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={resetScanFlow}
+              disabled={!original && !result && !detectMutation.isError}
+              className="h-11 px-4"
+            >
+              {t("scanIntake.reset")}
+            </Button>
+          </div>
 
         </section>
           <section id="analyze" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Analyze</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("tabs.analyze")}</h3>
               {result ? <span className="text-xs text-[var(--text-tertiary)]">{t("result.domainLabel")} {result.domain}</span> : null}
             </div>
 
@@ -336,17 +335,17 @@ export function FarmerDashboard() {
             ) : (
               <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
                 <Clock3 className="h-7 w-7 text-[var(--text-tertiary)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">Run a scan to generate analysis details.</p>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("result.empty")}</p>
               </div>
             )}
           </section>
 
           <section id="act" data-dashboard-section className="scroll-mt-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Act</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{t("tabs.act")}</h3>
               {result ? (
                 <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
-                  Treatment plan
+                  {t("result.treatment")}
                 </span>
               ) : null}
             </div>
@@ -369,7 +368,7 @@ export function FarmerDashboard() {
             ) : (
               <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--bg-secondary)]/60 p-6 text-center">
                 <Sparkles className="h-7 w-7 text-[var(--text-tertiary)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">Treatment guidance appears here after analysis completes.</p>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("result.treatmentEmpty")}</p>
               </div>
             )}
           </section>

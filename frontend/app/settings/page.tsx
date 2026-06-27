@@ -18,7 +18,7 @@ export default function SettingsPage() {
       navItems={navItems}
       activeSection="settings"
       topBarLead={
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ring)]/25 bg-[var(--bg-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
           <Settings2 className="h-3.5 w-3.5" />
           Settings
         </div>
@@ -26,7 +26,7 @@ export default function SettingsPage() {
       contentClassName="overflow-auto"
     >
       <section className="grid min-h-0 flex-1 gap-4 md:grid-cols-2">
-        <article className="rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <article className="rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-md)]">
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)]">
             <MoonStar className="h-5 w-5" />
           </div>
@@ -38,7 +38,7 @@ export default function SettingsPage() {
           </div>
         </article>
 
-        <article className="rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <article className="rounded-[1.75rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-md)]">
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)]">
             <Languages className="h-5 w-5" />
           </div>

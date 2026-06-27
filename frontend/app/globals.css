@@ -3,54 +3,89 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #f4f4f5;
-  --bg-secondary: #ededf0;
-  --text-primary: #18181b;
-  --text-secondary: #52525b;
-  --text-tertiary: #71717a;
-  --card-bg: #fafafa;
-  --card-border: #e4e4e7;
-  --accent: #22c55e;
-  --accent-hover: #16a34a;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --secondary: #f5f5f5;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #16a34a;
+  --accent: #16a34a;
+  --accent-foreground: #fafafa;
+  --accent-hover: #15803d;
   --critical: #ef4444;
   --warning: #f59e0b;
-  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
-  --shadow-md: 0 8px 24px rgba(24, 24, 27, 0.06);
-  --shadow-lg: 0 20px 50px rgba(24, 24, 27, 0.08);
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --shadow-md: 0 10px 28px rgba(10, 10, 10, 0.08);
+  --shadow-lg: 0 22px 54px rgba(10, 10, 10, 0.12);
+
+  /* Legacy aliases used throughout existing components */
+  --bg-primary: var(--background);
+  --bg-secondary: var(--secondary);
+  --text-primary: var(--foreground);
+  --text-secondary: #404040;
+  --text-tertiary: var(--muted-foreground);
+  --card-bg: var(--card);
+  --card-border: var(--border);
 }
 
 html.dark {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111114;
-  --text-primary: #d4d4d8;
-  --text-secondary: #71717a;
-  --text-tertiary: #52525b;
-  --card-bg: #111114;
-  --card-border: #27272a;
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --secondary: #262626;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --border: #262626;
+  --input: #262626;
+  --ring: #4ade80;
   --accent: #22c55e;
-  --accent-hover: #16a34a;
-  --critical: #ef4444;
-  --warning: #f59e0b;
+  --accent-foreground: #052e16;
+  --accent-hover: #4ade80;
+  --critical: #f87171;
+  --warning: #fbbf24;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 25px 60px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 25px 60px rgba(0, 0, 0, 0.65);
+
+  --bg-primary: var(--background);
+  --bg-secondary: var(--secondary);
+  --text-primary: var(--foreground);
+  --text-secondary: #c5c5c5;
+  --text-tertiary: var(--muted-foreground);
+  --card-bg: var(--card);
+  --card-border: var(--border);
 }
 
 /* Base styles */
 * {
   @apply transition-colors motion-reduce:transition-none;
   border-color: color-mix(in srgb, var(--card-border) 100%, transparent);
-  transition-duration: 200ms;
+  transition-duration: 180ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html, body {
   @apply h-full;
-  background-color: var(--bg-primary);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(156, 163, 175, 0.1), transparent 32%),
+    radial-gradient(circle at 84% 78%, rgba(212, 212, 212, 0.12), transparent 40%),
+    var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sora), system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   overflow-x: hidden;
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(115, 115, 115, 0.12), transparent 32%),
+    radial-gradient(circle at 84% 78%, rgba(64, 64, 64, 0.16), transparent 40%),
+    var(--bg-primary);
 }
 
 /* RTL support */
@@ -103,7 +138,12 @@ html, body {
   }
   
   a {
-    @apply text-accent hover:text-accent-hover transition-colors;
+    @apply transition-colors;
+    color: var(--text-primary);
+  }
+
+  a:hover {
+    color: var(--text-secondary);
   }
 }
 
@@ -118,8 +158,10 @@ html, body {
   }
   
   .btn-primary {
-    @apply btn-base bg-[var(--accent)] text-zinc-50 font-semibold;
-    @apply hover:bg-[var(--accent-hover)];
+    @apply btn-base font-semibold;
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+    @apply hover:opacity-90;
     @apply active:scale-95;
   }
   
@@ -135,8 +177,7 @@ html, body {
   /* Card styles */
   .card {
     @apply bg-card-bg border border-card-border rounded-xl p-6;
-    @apply shadow-sm transition-all duration-200;
-    @apply dark:backdrop-blur-sm;
+    @apply shadow-sm transition-all duration-200 backdrop-blur-sm;
   }
   
   .card:hover {
@@ -156,7 +197,8 @@ html, body {
     @apply w-full px-4 py-2.5 rounded-lg;
     @apply bg-card-bg border border-card-border;
     @apply text-text-primary placeholder:text-text-tertiary;
-    @apply focus:outline-none;
+    @apply focus:outline-none focus:ring-2;
+    --tw-ring-color: color-mix(in srgb, var(--ring) 55%, transparent);
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
   
@@ -326,10 +368,11 @@ html, body {
 }
 
 .glass-nav {
-  background-color: color-mix(in srgb, var(--bg-primary) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-border) 90%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--card-bg) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-border) 85%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ─────────────────────────────────────────

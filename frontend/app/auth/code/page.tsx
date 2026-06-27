@@ -75,7 +75,7 @@ export default function AuthCodePage() {
   return (
     <main className="relative min-h-[calc(100vh-90px)] overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8rem] top-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute left-[-8rem] top-10 h-72 w-72 rounded-full bg-zinc-300/30 blur-3xl dark:bg-zinc-700/20" />
         <div className="absolute bottom-0 right-[-9rem] h-80 w-80 rounded-full bg-zinc-500/10 blur-3xl" />
       </div>
 
@@ -96,7 +96,7 @@ export default function AuthCodePage() {
                 type="password"
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
-                className="mt-2 h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)] px-3 text-[var(--text-primary)] outline-none transition focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20"
+                className="mt-2 h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)] px-3 text-[var(--text-primary)] outline-none transition focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
                 placeholder={t("codePlaceholder")}
                 required
               />
@@ -114,7 +114,7 @@ export default function AuthCodePage() {
                 <select
                   value={role}
                   onChange={(event) => setRole(event.target.value as UserRole)}
-                  className="mt-2 h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-[var(--text-primary)] outline-none transition focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20"
+                  className="mt-2 h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-[var(--text-primary)] outline-none transition focus:border-[var(--ring)]/50 focus:ring-2 focus:ring-[color:var(--ring)]/20"
                 >
                   <option value="farmer">{t("roles.farmer")}</option>
                   <option value="expert">{t("roles.expert")}</option>

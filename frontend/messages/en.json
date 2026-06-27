@@ -116,7 +116,9 @@
     "title": "Scan, Analyze, and Act",
     "tabs": {
       "scan": "Scan",
-      "result": "Result"
+      "result": "Result",
+      "analyze": "Analyze",
+      "act": "Act"
     },
     "scanIntake": {
       "title": "Scan Intake",
@@ -124,8 +126,11 @@
       "statusReady": "Image Ready",
       "statusWaiting": "Awaiting Upload",
       "dropzoneTitle": "Drag and drop a leaf image",
+      "fileTypes": "JPG, PNG, or WEBP",
+      "readyNotice": "Image ready for scanning.",
       "cta": "Start AI Scan",
-      "scanning": "Scanning..."
+      "scanning": "Scanning...",
+      "reset": "Start over"
     },
     "result": {
       "title": "Result and Treatment",
@@ -140,6 +145,7 @@
       "next": "Next 7 days",
       "monitor": "Monitor for",
       "empty": "Run a scan to view confidence analytics and treatment guidance.",
+      "treatmentEmpty": "Treatment guidance appears here after analysis completes.",
       "metrics": {
         "modelConfidence": "Model Confidence",
         "diseaseLikelihood": "Disease Likelihood",
@@ -148,9 +154,39 @@
     },
     "history": {
       "title": "Scan History",
+      "subtitle": "All previous scans in one place",
       "searchPlaceholder": "Search by disease or domain",
+      "advancedSearch": "Advanced search",
+      "hideFilters": "Hide filters",
+      "timeAll": "All time",
+      "time24h": "24h",
+      "time7d": "7d",
+      "time30d": "30d",
+      "time90d": "90d",
+      "filterDomain": "Domain",
+      "filterStatus": "Status",
+      "filterMinConfidence": "Min confidence",
+      "filterStartDate": "Start date",
+      "filterEndDate": "End date",
+      "allDomains": "All domains",
+      "allOutcomes": "All outcomes",
+      "statusHealthyOnly": "Healthy only",
+      "statusNeedsAttention": "Needs attention",
+      "confidenceAny": "Any confidence",
+      "confidence50": "50%+",
+      "confidence70": "70%+",
+      "confidence85": "85%+",
+      "resultSingle": "result",
+      "resultPlural": "results",
+      "resetFilters": "Reset filters",
       "loading": "Loading history...",
-      "empty": "No matching scans found."
+      "empty": "No matching scans found.",
+      "signInTitle": "Sign in to view your scan history",
+      "signInBody": "Your previous scans are tied to your account. Sign in to review past detections, confidence levels, and treatment guidance.",
+      "signInCta": "Go to sign in",
+      "priorityHealthy": "Stable",
+      "priorityAttention": "Needs attention",
+      "priorityAttentionHigh": "Review now"
     },
     "snapshot": {
       "title": "Operations Snapshot",

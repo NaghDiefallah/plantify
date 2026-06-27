@@ -2,6 +2,7 @@
 
 import {createPortal} from "react-dom";
 import {useCallback, useEffect, useMemo, useState} from "react";
+import Image from "next/image";
 import {
   AlertTriangle,
   Bookmark,
@@ -121,11 +122,11 @@ function applyProfileToFeed(posts: CommunityPost[], profile: UserProfile): Commu
 
 function Avatar({name, avatarUrl, className}: {name: string; avatarUrl?: string | null; className?: string}) {
   if (avatarUrl) {
-    return <img className={cn("rounded-full object-cover", className)} src={avatarUrl} alt={name} />;
+    return <Image className={cn("rounded-full object-cover", className)} src={avatarUrl} alt={name} width={96} height={96} unoptimized />;
   }
 
   return (
-    <div className={cn("flex items-center justify-center rounded-full bg-emerald-500/15 font-semibold text-emerald-700 dark:text-emerald-300", className)}>
+    <div className={cn("flex items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] font-semibold text-[var(--text-primary)]", className)}>
       {initials(name)}
     </div>
   );
@@ -202,7 +203,7 @@ function FeaturedCommentCard({
       <button
         type="button"
         onClick={onOpenThread}
-        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-emerald-500/30 hover:text-[var(--text-primary)]"
+        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--ring)]/30 hover:text-[var(--text-primary)]"
       >
         <MessageCircle className="h-3.5 w-3.5" />
         Open thread
@@ -212,26 +213,12 @@ function FeaturedCommentCard({
 }
 
 function formatRelativeTime(value: string): string {
-  const delta = Date.now() - new Date(value).getTime();
-  const minutes = Math.max(1, Math.floor(delta / 60000));
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) {
-    return `${days}d ago`;
-  }
-
-  return new Date(value).toLocaleDateString("en-US", {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
-    day: "numeric"
-  });
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(value));
 }
 
 function createAttachmentId(): string {
@@ -269,7 +256,9 @@ function MediaCarousel({post}: {post: CommunityPost}) {
         {activeMedia.media_type === "video" ? (
           <video className="max-h-[460px] w-full object-cover" src={activeMedia.media_url} controls muted autoPlay loop playsInline />
         ) : (
-          <img className="max-h-[460px] w-full object-cover" src={activeMedia.media_url} alt={post.title} loading="lazy" />
+          <div className="relative h-[460px] w-full">
+            <Image className="object-cover" src={activeMedia.media_url} alt={post.title} fill sizes="(max-width: 1024px) 100vw, 740px" unoptimized />
+          </div>
         )}
       </div>
 
@@ -293,7 +282,7 @@ function MediaCarousel({post}: {post: CommunityPost}) {
                 aria-label={`View attachment ${index + 1}`}
                 className={cn(
                   "h-2.5 rounded-full transition-all",
-                  index === active ? "w-8 bg-emerald-500" : "w-2.5 bg-[var(--card-border)]"
+                  index === active ? "w-8 bg-[var(--text-primary)]" : "w-2.5 bg-[var(--card-border)]"
                 )}
               />
             ))}
@@ -346,7 +335,7 @@ function CommentTree({
             </div>
 
             {comment.is_solution || solutionCommentId === comment.id ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-primary)]">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Solution
               </span>
@@ -396,7 +385,7 @@ function CommentTree({
               <button
                 type="button"
                 onClick={() => onMarkSolution(comment.id)}
-                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--ring)]/35 bg-[var(--bg-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Mark solution
@@ -616,7 +605,7 @@ function ComposerForm({
                 <input checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} type="checkbox" />
                 Private
               </label>
-              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:border-emerald-500/40">
+              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--ring)]/40">
                 <ImagePlus className="h-4 w-4" />
                 Add media
                 <input accept="image/*,video/*" className="hidden" multiple type="file" onChange={handleFileSelection} />
@@ -636,7 +625,9 @@ function ComposerForm({
                         {attachment.media_type === "video" ? (
                           <video className="h-full w-full object-cover" src={attachment.media_url} muted controls playsInline />
                         ) : (
-                          <img className="h-full w-full object-cover" src={attachment.media_url} alt={attachment.name} />
+                          <div className="relative h-full w-full">
+                            <Image className="object-cover" src={attachment.media_url} alt={attachment.name} fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized />
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
@@ -697,7 +688,7 @@ function ComposerForm({
 
           <div className="rounded-[1.5rem] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[0_20px_50px_rgba(15,23,42,0.07)]">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] text-[var(--text-primary)]">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
@@ -729,7 +720,9 @@ function ComposerForm({
                       {attachment.media_type === "video" ? (
                         <video className="h-full w-full object-cover" src={attachment.media_url} muted controls playsInline />
                       ) : (
-                        <img className="h-full w-full object-cover" src={attachment.media_url} alt={attachment.name} />
+                        <div className="relative h-full w-full">
+                          <Image className="object-cover" src={attachment.media_url} alt={attachment.name} fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized />
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)]">
@@ -1330,9 +1323,9 @@ export function CommunityExperience({profile, initialPostId}: CommunityExperienc
 
   return (
     <>
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,780px)_320px] xl:justify-center">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,740px)_300px] xl:justify-center">
         <section className="min-h-0 overflow-auto rounded-[1.75rem] bg-transparent">
-          <div className="mx-auto flex max-w-[780px] flex-col gap-4">
+          <div className="mx-auto flex max-w-[740px] flex-col gap-3">
 
             <div className="sticky top-0 z-20 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 shadow-[var(--shadow-sm)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1376,7 +1369,7 @@ export function CommunityExperience({profile, initialPostId}: CommunityExperienc
               </div>
             </div>
 
-            <Card className="rounded-[1.6rem] border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
+            <Card className="rounded-[1.2rem] border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3">
                 <button type="button" onClick={() => void openProfile(currentProfile?.id ?? "")} disabled={!currentProfile}>
                   <Avatar name={currentProfile?.full_name ?? "Plantify member"} avatarUrl={currentProfile?.avatar_url} className="h-11 w-11 text-sm" />
@@ -1384,7 +1377,7 @@ export function CommunityExperience({profile, initialPostId}: CommunityExperienc
                 <button
                   type="button"
                   onClick={() => setComposerOpen(true)}
-                  className="flex-1 rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] px-5 py-3 text-left text-sm text-[var(--text-secondary)] transition hover:border-emerald-500/30 hover:text-[var(--text-primary)]"
+                  className="flex-1 rounded-full border border-[var(--card-border)] bg-[var(--bg-secondary)] px-5 py-3 text-left text-sm text-[var(--text-secondary)] transition hover:border-[var(--ring)]/30 hover:text-[var(--text-primary)]"
                 >
                   What&apos;s new?
                 </button>
@@ -1404,7 +1397,7 @@ export function CommunityExperience({profile, initialPostId}: CommunityExperienc
             ) : (
               <div className="space-y-4 pb-8">
                 {feed.map((post) => (
-                  <Card key={post.id} className="overflow-hidden rounded-[1.65rem] border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
+                  <Card key={post.id} className="overflow-hidden rounded-[1.2rem] border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--shadow-sm)]">
                     <div className="mb-4 flex items-start justify-between gap-4">
                       <div className="flex min-w-0 gap-3">
                         <button type="button" onClick={() => void openProfile(post.author.id)} className="shrink-0">

@@ -116,7 +116,9 @@
     "title": "扫描、分析并执行",
     "tabs": {
       "scan": "扫描",
-      "result": "结果"
+      "result": "结果",
+      "analyze": "分析",
+      "act": "执行"
     },
     "scanIntake": {
       "title": "扫描输入",
@@ -124,8 +126,11 @@
       "statusReady": "图片已就绪",
       "statusWaiting": "等待上传",
       "dropzoneTitle": "拖放叶片图片到此处",
+      "fileTypes": "支持 JPG、PNG 或 WEBP",
+      "readyNotice": "图片已可开始扫描。",
       "cta": "开始 AI 扫描",
-      "scanning": "扫描中..."
+      "scanning": "扫描中...",
+      "reset": "重新开始"
     },
     "result": {
       "title": "结果与处理",
@@ -140,6 +145,7 @@
       "next": "未来 7 天",
       "monitor": "重点监测",
       "empty": "请先执行扫描以查看置信度分析和处理建议。",
+      "treatmentEmpty": "分析完成后，处理建议会显示在这里。",
       "metrics": {
         "modelConfidence": "模型置信度",
         "diseaseLikelihood": "病害可能性",
@@ -148,9 +154,39 @@
     },
     "history": {
       "title": "扫描历史",
+      "subtitle": "所有历史扫描集中在这里",
       "searchPlaceholder": "按病害或域搜索",
+      "advancedSearch": "高级筛选",
+      "hideFilters": "收起筛选",
+      "timeAll": "全部时间",
+      "time24h": "24 小时",
+      "time7d": "7 天",
+      "time30d": "30 天",
+      "time90d": "90 天",
+      "filterDomain": "领域",
+      "filterStatus": "状态",
+      "filterMinConfidence": "最低置信度",
+      "filterStartDate": "开始日期",
+      "filterEndDate": "结束日期",
+      "allDomains": "全部领域",
+      "allOutcomes": "全部结果",
+      "statusHealthyOnly": "仅健康",
+      "statusNeedsAttention": "需关注",
+      "confidenceAny": "任意置信度",
+      "confidence50": "50%+",
+      "confidence70": "70%+",
+      "confidence85": "85%+",
+      "resultSingle": "条结果",
+      "resultPlural": "条结果",
+      "resetFilters": "重置筛选",
       "loading": "历史加载中...",
-      "empty": "未找到匹配扫描记录。"
+      "empty": "未找到匹配扫描记录。",
+      "signInTitle": "登录后查看你的扫描历史",
+      "signInBody": "你的历史扫描与账户绑定。登录后可查看过往识别结果、置信度水平和处理建议。",
+      "signInCta": "前往登录",
+      "priorityHealthy": "稳定",
+      "priorityAttention": "需要关注",
+      "priorityAttentionHigh": "立即复查"
     },
     "snapshot": {
       "title": "运营快照",

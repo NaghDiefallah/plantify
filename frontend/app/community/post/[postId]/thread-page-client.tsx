@@ -2,6 +2,7 @@
 
 import {Users} from "lucide-react";
 import {useMemo} from "react";
+import {useEffect, useState} from "react";
 
 import {CommunityExperience} from "@/components/community/community-experience";
 import {DashboardShell} from "@/components/dashboard/dashboard-shell";
@@ -13,7 +14,11 @@ type CommunityThreadPageClientProps = {
 };
 
 export function CommunityThreadPageClient({postId}: CommunityThreadPageClientProps) {
-  const profile = typeof window === "undefined" ? null : getStoredProfile();
+  const [profile, setProfile] = useState<ReturnType<typeof getStoredProfile>>(null);
+
+  useEffect(() => {
+    setProfile(getStoredProfile());
+  }, []);
 
   const navItems = useMemo<DashboardNavItem[]>(() => {
     return [];
@@ -24,7 +29,7 @@ export function CommunityThreadPageClient({postId}: CommunityThreadPageClientPro
       navItems={navItems}
       activeSection="community"
       topBarLead={
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ring)]/25 bg-[var(--bg-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
           <Users className="h-3.5 w-3.5" />
           Community Thread
         </div>
